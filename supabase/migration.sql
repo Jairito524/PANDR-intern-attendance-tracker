@@ -33,7 +33,15 @@ CREATE TABLE IF NOT EXISTS public.attendance (
 CREATE INDEX IF NOT EXISTS idx_attendance_user_id ON public.attendance(user_id);
 CREATE INDEX IF NOT EXISTS idx_attendance_date    ON public.attendance(date);
 
--- 4. Row Level Security
+-- 4. Helper function to check admin role (SECURITY DEFINER bypasses RLS to avoid recursion)
+CREATE OR REPLACE FUNCTION public.is_admin()
+RETURNS BOOLEAN AS $$
+  SELECT EXISTS (
+    SELECT 1 FROM public.users WHERE id = auth.uid() AND role = 'admin'
+  );
+$$ LANGUAGE sql SECURITY DEFINER STABLE;
+
+-- 5. Row Level Security
 ALTER TABLE public.users ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.attendance ENABLE ROW LEVEL SECURITY;
 
@@ -42,14 +50,10 @@ CREATE POLICY "Users can view own profile"
   ON public.users FOR SELECT
   USING (auth.uid() = id);
 
--- Admins can view all profiles
+-- Admins can view all profiles (uses SECURITY DEFINER function to avoid recursion)
 CREATE POLICY "Admins can view all profiles"
   ON public.users FOR SELECT
-  USING (
-    EXISTS (
-      SELECT 1 FROM public.users u WHERE u.id = auth.uid() AND u.role = 'admin'
-    )
-  );
+  USING (public.is_admin());
 
 -- Interns can view their own attendance
 CREATE POLICY "Interns can view own attendance"
@@ -69,20 +73,12 @@ CREATE POLICY "Interns can update own attendance"
 -- Admins can view all attendance
 CREATE POLICY "Admins can view all attendance"
   ON public.attendance FOR SELECT
-  USING (
-    EXISTS (
-      SELECT 1 FROM public.users u WHERE u.id = auth.uid() AND u.role = 'admin'
-    )
-  );
+  USING (public.is_admin());
 
 -- Admins can update all attendance
 CREATE POLICY "Admins can update all attendance"
   ON public.attendance FOR UPDATE
-  USING (
-    EXISTS (
-      SELECT 1 FROM public.users u WHERE u.id = auth.uid() AND u.role = 'admin'
-    )
-  );
+  USING (public.is_admin());
 
 -- 5. Function to auto-update updated_at
 CREATE OR REPLACE FUNCTION public.handle_updated_at()

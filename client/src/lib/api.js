@@ -3,7 +3,19 @@ import { supabase } from "./supabaseClient";
 const API_URL = import.meta.env.VITE_API_URL || "";
 
 /**
+ * Custom error class that carries the error code from the server.
+ */
+class ApiError extends Error {
+  constructor(message, code, status) {
+    super(message);
+    this.code = code;
+    this.status = status;
+  }
+}
+
+/**
  * Authenticated fetch wrapper — attaches the Supabase JWT automatically.
+ * Throws ApiError with a `code` property for structured error handling.
  */
 async function authFetch(path, options = {}) {
   const {
@@ -24,7 +36,11 @@ async function authFetch(path, options = {}) {
   const data = await res.json();
 
   if (!res.ok) {
-    throw new Error(data.error || `Request failed (${res.status})`);
+    throw new ApiError(
+      data.message || data.error || `Request failed (${res.status})`,
+      data.error,  // error code like "ACCESS_DENIED"
+      res.status
+    );
   }
 
   return data;

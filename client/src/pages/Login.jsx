@@ -7,10 +7,12 @@ export default function Login({ onLogin }) {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [accessDenied, setAccessDenied] = useState(false);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
+    setAccessDenied(false);
     setLoading(true);
 
     try {
@@ -25,6 +27,14 @@ export default function Login({ onLogin }) {
       try {
         await recordTimeIn();
       } catch (timeInErr) {
+        // Check if this is an IP restriction error
+        if (timeInErr.code === "ACCESS_DENIED" || timeInErr.status === 403) {
+          setAccessDenied(true);
+          // Sign out since they can't use the system
+          await supabase.auth.signOut();
+          setLoading(false);
+          return;
+        }
         console.warn("Time-in recording note:", timeInErr.message);
       }
 
@@ -38,24 +48,48 @@ export default function Login({ onLogin }) {
 
   return (
     <div className="min-h-screen flex items-center justify-center px-4 animate-fade-in">
-      {/* Background decorations */}
+      {/* Background decorations — pink glow */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute -top-40 -right-40 w-80 h-80 bg-brand-600/20 rounded-full blur-3xl" />
-        <div className="absolute -bottom-40 -left-40 w-96 h-96 bg-purple-600/15 rounded-full blur-3xl" />
+        <div className="absolute -top-40 -right-40 w-80 h-80 bg-brand-500/20 rounded-full blur-3xl" />
+        <div className="absolute -bottom-40 -left-40 w-96 h-96 bg-brand-400/15 rounded-full blur-3xl" />
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-brand-500/5 rounded-full blur-3xl" />
       </div>
 
       <div className="w-full max-w-md relative z-10">
-        {/* Logo / Branding */}
+        {/* PANDR Branding */}
         <div className="text-center mb-8 animate-slide-up">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-brand-500 to-purple-600 mb-4 shadow-lg shadow-brand-500/25">
+          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-brand-500 to-brand-400 mb-4 shadow-lg shadow-brand-500/25">
             <svg className="w-8 h-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
           </div>
-          <h1 className="text-3xl font-bold gradient-text">Attendance Tracker</h1>
-          <p className="text-surface-200/60 mt-2 text-sm">Sign in to record your attendance</p>
+          <h1 className="text-4xl font-black tracking-tight gradient-text">PANDR</h1>
+          <p className="text-surface-200/60 mt-1 text-sm font-medium">Intern Attendance Tracker</p>
         </div>
+
+        {/* Access Denied Banner */}
+        {accessDenied && (
+          <div
+            id="access-denied-banner"
+            className="mb-6 rounded-2xl overflow-hidden animate-slide-up"
+          >
+            <div className="bg-gradient-to-r from-red-500/20 via-brand-500/15 to-red-500/20 border border-red-500/30 rounded-2xl p-5">
+              <div className="flex items-start gap-3">
+                <div className="w-10 h-10 rounded-xl bg-red-500/20 flex items-center justify-center shrink-0 mt-0.5">
+                  <svg className="w-5 h-5 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v.01M12 12V8m0 13a9 9 0 110-18 9 9 0 010 18zm0-2a7 7 0 100-14 7 7 0 000 14z" />
+                  </svg>
+                </div>
+                <div>
+                  <p className="text-red-300 font-semibold text-sm">🔒 Access Denied</p>
+                  <p className="text-red-400/80 text-sm mt-1 leading-relaxed">
+                    You must be connected to the PANDR office network to log in.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Login Card */}
         <form
@@ -127,6 +161,11 @@ export default function Login({ onLogin }) {
             Contact your administrator for access.
           </p>
         </form>
+
+        {/* Footer branding */}
+        <p className="text-center text-xs text-surface-200/25 mt-6 animate-slide-up" style={{ animationDelay: "0.2s" }}>
+          © {new Date().getFullYear()} PANDR Outsourcing
+        </p>
       </div>
     </div>
   );

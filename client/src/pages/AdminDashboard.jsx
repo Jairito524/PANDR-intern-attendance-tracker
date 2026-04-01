@@ -70,11 +70,22 @@ export default function AdminDashboard({ user, onLogout }) {
 
   return (
     <div className="min-h-screen p-4 md:p-8 animate-fade-in">
-      {/* Header */}
+      {/* Header with PANDR branding */}
       <header className="flex flex-wrap items-center justify-between gap-4 mb-8">
-        <div>
-          <h1 className="text-2xl md:text-3xl font-bold gradient-text">Admin Dashboard</h1>
-          <p className="text-surface-200/60 text-sm mt-1">{currentDate}</p>
+        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2">
+            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-brand-500 to-brand-400 flex items-center justify-center shadow-lg shadow-brand-500/20">
+              <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </div>
+            <div>
+              <h1 className="text-xl md:text-2xl font-black tracking-tight gradient-text">
+                PANDR <span className="text-surface-200/30 font-normal mx-1">|</span> Admin Portal
+              </h1>
+              <p className="text-surface-200/40 text-xs -mt-0.5">{currentDate}</p>
+            </div>
+          </div>
         </div>
         <div className="flex items-center gap-3">
           <div className="text-right hidden sm:block">
@@ -118,8 +129,8 @@ export default function AdminDashboard({ user, onLogout }) {
         {/* Present Today */}
         <div className="glass rounded-2xl p-6 animate-slide-up" style={{ animationDelay: "0.1s" }}>
           <div className="flex items-center gap-3 mb-3">
-            <div className="w-12 h-12 rounded-xl bg-emerald-500/10 flex items-center justify-center">
-              <svg className="w-6 h-6 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <div className="w-12 h-12 rounded-xl bg-brand-400/10 flex items-center justify-center">
+              <svg className="w-6 h-6 text-brand-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
             </div>
@@ -130,7 +141,7 @@ export default function AdminDashboard({ user, onLogout }) {
             <div className="mt-2">
               <div className="w-full h-1.5 rounded-full bg-white/5 overflow-hidden">
                 <div
-                  className="h-full rounded-full bg-gradient-to-r from-emerald-500 to-emerald-400 transition-all duration-1000"
+                  className="h-full rounded-full bg-gradient-to-r from-brand-500 to-brand-400 transition-all duration-1000"
                   style={{
                     width: `${Math.min((stats.presentToday / stats.totalInterns) * 100, 100)}%`,
                   }}
@@ -146,8 +157,8 @@ export default function AdminDashboard({ user, onLogout }) {
         {/* Average Hours */}
         <div className="glass rounded-2xl p-6 animate-slide-up" style={{ animationDelay: "0.15s" }}>
           <div className="flex items-center gap-3 mb-3">
-            <div className="w-12 h-12 rounded-xl bg-purple-500/10 flex items-center justify-center">
-              <svg className="w-6 h-6 text-purple-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <div className="w-12 h-12 rounded-xl bg-brand-500/10 flex items-center justify-center">
+              <svg className="w-6 h-6 text-brand-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
             </div>
@@ -272,8 +283,8 @@ export default function AdminDashboard({ user, onLogout }) {
                           Completed
                         </span>
                       ) : (
-                        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs bg-emerald-500/10 text-emerald-400">
-                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 pulse-dot" />
+                        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs bg-brand-500/10 text-brand-400">
+                          <span className="w-1.5 h-1.5 rounded-full bg-brand-400 pulse-dot" />
                           Active
                         </span>
                       )}

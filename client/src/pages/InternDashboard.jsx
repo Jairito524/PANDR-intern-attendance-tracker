@@ -102,18 +102,25 @@ export default function InternDashboard({ user, onLogout }) {
 
   return (
     <div className="min-h-screen p-4 md:p-8 animate-fade-in">
-      {/* Header */}
+      {/* Header with PANDR branding */}
       <header className="flex flex-wrap items-center justify-between gap-4 mb-8">
-        <div>
-          <h1 className="text-2xl md:text-3xl font-bold gradient-text">Dashboard</h1>
-          <p className="text-surface-200/60 text-sm mt-1">
-            Welcome back, <span className="text-white font-medium">{user?.name || "Intern"}</span>
-          </p>
+        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2">
+            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-brand-500 to-brand-400 flex items-center justify-center shadow-lg shadow-brand-500/20">
+              <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </div>
+            <div>
+              <h1 className="text-xl md:text-2xl font-black tracking-tight gradient-text">PANDR Outsourcing</h1>
+              <p className="text-surface-200/40 text-xs -mt-0.5">Intern Dashboard</p>
+            </div>
+          </div>
         </div>
         <div className="flex items-center gap-3">
           <div className="text-right hidden sm:block">
-            <p className="text-xs text-surface-200/50">{user?.department || "Department"}</p>
-            <p className="text-xs text-surface-200/40">{user?.email}</p>
+            <p className="text-sm text-white font-medium">{user?.name || "Intern"}</p>
+            <p className="text-xs text-surface-200/40">{user?.department || "Department"} • {user?.email}</p>
           </div>
           <button
             id="logout-button"
@@ -149,7 +156,7 @@ export default function InternDashboard({ user, onLogout }) {
         </div>
       )}
       {successMsg && (
-        <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-xl px-4 py-3 text-emerald-400 text-sm mb-6 flex items-center gap-2">
+        <div className="bg-brand-500/10 border border-brand-500/20 rounded-xl px-4 py-3 text-brand-400 text-sm mb-6 flex items-center gap-2">
           <svg className="w-5 h-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
           </svg>
@@ -162,8 +169,8 @@ export default function InternDashboard({ user, onLogout }) {
         {/* Time In */}
         <div className="glass rounded-2xl p-5 animate-slide-up" style={{ animationDelay: "0.1s" }}>
           <div className="flex items-center gap-3 mb-3">
-            <div className="w-10 h-10 rounded-xl bg-emerald-500/10 flex items-center justify-center">
-              <svg className="w-5 h-5 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <div className="w-10 h-10 rounded-xl bg-brand-500/10 flex items-center justify-center">
+              <svg className="w-5 h-5 text-brand-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" />
               </svg>
             </div>
@@ -224,7 +231,7 @@ export default function InternDashboard({ user, onLogout }) {
                 today?.time_out
                   ? "bg-surface-200/5"
                   : today?.time_in
-                  ? "bg-emerald-500/10"
+                  ? "bg-brand-500/10"
                   : "bg-surface-200/5"
               }`}
             >
@@ -233,7 +240,7 @@ export default function InternDashboard({ user, onLogout }) {
                   today?.time_out
                     ? "bg-surface-200/30"
                     : today?.time_in
-                    ? "bg-emerald-400 pulse-dot"
+                    ? "bg-brand-400 pulse-dot"
                     : "bg-surface-200/30"
                 }`}
               />
@@ -245,7 +252,7 @@ export default function InternDashboard({ user, onLogout }) {
               today?.time_out
                 ? "text-surface-200/50"
                 : today?.time_in
-                ? "text-emerald-400"
+                ? "text-brand-400"
                 : "text-surface-200/50"
             }`}
           >
@@ -267,7 +274,7 @@ export default function InternDashboard({ user, onLogout }) {
             id="record-time-out-button"
             onClick={handleTimeOut}
             disabled={timeOutLoading}
-            className="w-full sm:w-auto px-8 py-4 rounded-2xl bg-gradient-to-r from-orange-600 to-red-600 text-white font-semibold hover:from-orange-500 hover:to-red-500 focus:outline-none focus:ring-2 focus:ring-orange-500/50 transition-all duration-200 disabled:opacity-50 shadow-lg shadow-orange-600/20 hover:shadow-orange-500/40 text-lg"
+            className="w-full sm:w-auto px-8 py-4 rounded-2xl bg-gradient-to-r from-brand-600 to-brand-500 text-white font-semibold hover:from-brand-500 hover:to-brand-400 focus:outline-none focus:ring-2 focus:ring-brand-500/50 transition-all duration-200 disabled:opacity-50 shadow-lg shadow-brand-600/20 hover:shadow-brand-500/40 text-lg"
           >
             {timeOutLoading ? (
               <span className="flex items-center justify-center gap-2">
@@ -333,8 +340,8 @@ export default function InternDashboard({ user, onLogout }) {
                           Completed
                         </span>
                       ) : (
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs bg-emerald-500/10 text-emerald-400">
-                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 pulse-dot" />
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs bg-brand-500/10 text-brand-400">
+                          <span className="w-1.5 h-1.5 rounded-full bg-brand-400 pulse-dot" />
                           Active
                         </span>
                       )}
