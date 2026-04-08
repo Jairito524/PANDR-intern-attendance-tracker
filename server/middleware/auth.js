@@ -52,6 +52,10 @@ export default async function authMiddleware(req, res, next) {
       return res.status(403).json({ error: "User profile not found. Contact your admin." });
     }
 
+    if (profile.is_active === false) {
+      return res.status(403).json({ error: "Your account has been disabled. Contact your admin." });
+    }
+
     req.user = profile;
     next();
   } catch (err) {

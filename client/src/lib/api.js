@@ -58,3 +58,12 @@ export const getAdminAttendance = (params = {}) => {
   return authFetch(`/api/admin/attendance${qs ? `?${qs}` : ""}`);
 };
 export const getAdminStats = () => authFetch("/api/admin/stats");
+
+// ─── User Management API ────────────────────────────────
+export const getAdminUsers = () => authFetch("/api/admin/users");
+export const createAdminUser = (body) =>
+  authFetch("/api/admin/users", { method: "POST", body: JSON.stringify(body) });
+export const updateAdminUser = (id, body) =>
+  authFetch(`/api/admin/users/${id}`, { method: "PATCH", body: JSON.stringify(body) });
+export const deleteAdminUser = (id) =>
+  authFetch(`/api/admin/users/${id}`, { method: "DELETE" });
