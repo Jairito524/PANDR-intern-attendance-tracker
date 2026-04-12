@@ -1,6 +1,8 @@
 import { Router } from "express";
 import { adminOnly } from "../middleware/auth.js";
 import supabase from "../lib/supabase.js";
+import multer from "multer";
+import * as XLSX from "xlsx";
 
 const router = Router();
 
@@ -203,4 +205,176 @@ router.delete("/users/:id", async (req, res) => {
   }
 });
 
+// ─── POST /api/admin/import ─────────────────────────────
+// Accepts a .xlsx file (Google Forms export), parses rows, and upserts
+// attendance records. Returns { imported, skipped, overwritten, unmatched }.
+const upload = multer({ storage: multer.memoryStorage() });
+
+router.post("/import", upload.single("file"), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: "No file uploaded" });
+    }
+
+    // ── Parse the workbook from the in-memory buffer
+    const workbook = XLSX.read(req.file.buffer, { type: "buffer", cellDates: true });
+    const sheetName = workbook.SheetNames[0];
+    const rows = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName], { defval: null });
+
+    if (!rows.length) {
+      return res.json({ imported: 0, skipped: 0, overwritten: 0, unmatched: [] });
+    }
+
+    // ── Build a lookup map: email → user_id from public.users
+    const { data: usersData, error: usersError } = await supabase
+      .from("users")
+      .select("id, email");
+    if (usersError) throw usersError;
+
+    const emailToId = {};
+    for (const u of usersData) {
+      emailToId[u.email.toLowerCase().trim()] = u.id;
+    }
+
+    // ── Group rows into a map keyed by "user_id|YYYY-MM-DD"
+    // Each entry: { time_in: Date|null, time_out: Date|null }
+    const PHT_OFFSET_MS = 8 * 60 * 60 * 1000; // UTC+8
+
+    const punchMap = {}; // key → { time_in, time_out }
+    const unmatchedEmails = new Set();
+
+    for (const row of rows) {
+      // Normalise column names (Google Forms may vary capitalisation)
+      const keys = Object.keys(row);
+      const get = (hint) => {
+        const k = keys.find((k) => k.toLowerCase().includes(hint.toLowerCase()));
+        return k ? row[k] : null;
+      };
+
+      const rawTimestamp = get("Timestamp") ?? get("timestamp");
+      const rawEmail     = get("Email") ?? get("email");
+      const rawDate      = get("Attendance Date") ?? get("date");
+      const rawLog       = get("Time Log") ?? get("log");
+
+      if (!rawEmail || !rawTimestamp || !rawLog) continue;
+
+      const email   = String(rawEmail).toLowerCase().trim();
+      const userId  = emailToId[email];
+
+      if (!userId) {
+        unmatchedEmails.add(rawEmail);
+        continue;
+      }
+
+      // Resolve the attendance date (prefer explicit "Attendance Date" column)
+      let attendanceDate;
+      if (rawDate instanceof Date) {
+        attendanceDate = rawDate.toISOString().split("T")[0];
+      } else if (rawDate) {
+        // SheetJS may return a serial number for date-only cells
+        const parsed = XLSX.SSF.parse_date_code
+          ? null
+          : new Date(rawDate);
+        const d = parsed || new Date(rawDate);
+        attendanceDate = d.toISOString().split("T")[0];
+      } else {
+        // Fallback: use the date part of the Timestamp
+        const ts = rawTimestamp instanceof Date ? rawTimestamp : new Date(rawTimestamp);
+        // Interpret ts as Philippine Time (UTC+8) → derive local date
+        const phtDate = new Date(ts.getTime() + PHT_OFFSET_MS);
+        attendanceDate = phtDate.toISOString().split("T")[0];
+      }
+
+      // Convert the Timestamp to UTC (subtract 8 h if it came in as PHT)
+      let punchTimeUTC;
+      if (rawTimestamp instanceof Date) {
+        // SheetJS with cellDates:true already gives a JS Date.
+        // Google Forms exports in the spreadsheet's timezone (assume PHT).
+        punchTimeUTC = new Date(rawTimestamp.getTime() - PHT_OFFSET_MS);
+      } else {
+        punchTimeUTC = new Date(new Date(rawTimestamp).getTime() - PHT_OFFSET_MS);
+      }
+
+      const key = `${userId}|${attendanceDate}`;
+      if (!punchMap[key]) {
+        punchMap[key] = { userId, attendanceDate, time_in: null, time_out: null };
+      }
+
+      const logType = String(rawLog).trim();
+      if (logType === "Time In") {
+        // Keep the earliest Time In if there are duplicates
+        if (!punchMap[key].time_in || punchTimeUTC < punchMap[key].time_in) {
+          punchMap[key].time_in = punchTimeUTC;
+        }
+      } else if (logType === "Time Out") {
+        // Keep the latest Time Out if there are duplicates
+        if (!punchMap[key].time_out || punchTimeUTC > punchMap[key].time_out) {
+          punchMap[key].time_out = punchTimeUTC;
+        }
+      }
+    }
+
+    // ── Upsert each paired record
+    let imported = 0;
+    let skipped = 0;
+    let overwritten = 0;
+
+    for (const entry of Object.values(punchMap)) {
+      if (!entry.time_in) {
+        // No Time In at all — skip (Time Out only rows are ambiguous)
+        skipped++;
+        continue;
+      }
+
+      const durationMinutes =
+        entry.time_out
+          ? Math.round((entry.time_out - entry.time_in) / 60000)
+          : null;
+
+      // Check whether a record already exists for this (user_id, date)
+      const { data: existing } = await supabase
+        .from("attendance")
+        .select("id")
+        .eq("user_id", entry.userId)
+        .eq("date", entry.attendanceDate)
+        .maybeSingle();
+
+      const record = {
+        user_id:          entry.userId,
+        date:             entry.attendanceDate,
+        time_in:          entry.time_in.toISOString(),
+        time_out:         entry.time_out ? entry.time_out.toISOString() : null,
+        duration_minutes: durationMinutes,
+      };
+
+      const { error: upsertError } = await supabase
+        .from("attendance")
+        .upsert(record, { onConflict: "user_id,date" });
+
+      if (upsertError) {
+        console.error("Upsert error for", entry, upsertError);
+        skipped++;
+        continue;
+      }
+
+      if (existing) {
+        overwritten++;
+      } else {
+        imported++;
+      }
+    }
+
+    res.json({
+      imported,
+      skipped,
+      overwritten,
+      unmatched: [...unmatchedEmails],
+    });
+  } catch (err) {
+    console.error("Admin import error:", err);
+    res.status(500).json({ error: err.message || "Import failed" });
+  }
+});
+
 export default router;
+

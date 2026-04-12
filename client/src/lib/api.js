@@ -67,3 +67,34 @@ export const updateAdminUser = (id, body) =>
   authFetch(`/api/admin/users/${id}`, { method: "PATCH", body: JSON.stringify(body) });
 export const deleteAdminUser = (id) =>
   authFetch(`/api/admin/users/${id}`, { method: "DELETE" });
+
+/**
+ * Upload a .xlsx file to the import endpoint.
+ * Uses a manual fetch so we can send FormData without setting Content-Type
+ * (the browser must set it with the correct multipart boundary).
+ */
+export async function importAttendance(file) {
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+
+  const token = session?.access_token;
+
+  const form = new FormData();
+  form.append("file", file);
+
+  const res = await fetch(`${API_URL}/api/admin/import`, {
+    method: "POST",
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+    body: form,
+  });
+
+  const data = await res.json();
+
+  if (!res.ok) {
+    throw new Error(data.error || `Import failed (${res.status})`);
+  }
+
+  return data; // { imported, skipped, overwritten, unmatched }
+}
+

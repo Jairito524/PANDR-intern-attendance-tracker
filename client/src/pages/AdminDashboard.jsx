@@ -6,6 +6,7 @@ import {
   createAdminUser,
   updateAdminUser,
   deleteAdminUser,
+  importAttendance,
 } from "../lib/api";
 
 // ─── Helpers ─────────────────────────────────────────────
@@ -125,6 +126,83 @@ const inputCls =
   "w-full px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white placeholder-white/30 text-sm " +
   "focus:outline-none focus:ring-2 focus:ring-brand-500/50 focus:border-brand-500/50 transition-all duration-200";
 
+const ROLE_OPTIONS = [
+  { value: "intern", label: "Intern" },
+  { value: "admin", label: "Admin" },
+];
+
+// ─── Custom Role Dropdown ─────────────────────────────────
+function RoleSelect({ id, value, onChange }) {
+  const [open, setOpen] = useState(false);
+  const containerRef = useRef(null);
+
+  // Close on outside click
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e) => {
+      if (containerRef.current && !containerRef.current.contains(e.target)) {
+        setOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [open]);
+
+  const selected = ROLE_OPTIONS.find((o) => o.value === value) ?? ROLE_OPTIONS[0];
+
+  return (
+    <div ref={containerRef} className="relative" id={id}>
+      {/* Trigger */}
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className={inputCls + " flex items-center justify-between pr-10 cursor-pointer text-left"}
+        aria-haspopup="listbox"
+        aria-expanded={open}
+      >
+        <span>{selected.label}</span>
+        <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center">
+          <svg
+            className={`w-4 h-4 text-white/40 transition-transform duration-200 ${open ? "rotate-180" : ""}`}
+            fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+          </svg>
+        </span>
+      </button>
+
+      {/* Dropdown panel */}
+      {open && (
+        <ul
+          role="listbox"
+          className="absolute z-50 mt-1.5 w-full rounded-xl border border-white/10 overflow-hidden shadow-2xl"
+          style={{ background: "rgba(18,18,28,0.97)", backdropFilter: "blur(12px)" }}
+        >
+          {ROLE_OPTIONS.map((opt) => (
+            <li
+              key={opt.value}
+              role="option"
+              aria-selected={opt.value === value}
+              onMouseDown={(e) => {
+                e.preventDefault(); // prevent blur-before-click
+                onChange(opt.value);
+                setOpen(false);
+              }}
+              className={`px-4 py-2.5 text-sm cursor-pointer select-none transition-colors duration-100
+                ${opt.value === value
+                  ? "bg-brand-500/20 text-brand-300 font-medium"
+                  : "text-white/70 hover:bg-white/8 hover:text-white"
+                }`}
+            >
+              {opt.label}
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
 // ─── Add User Modal ──────────────────────────────────────
 function AddUserModal({ onClose, onSuccess }) {
   const [form, setForm] = useState({ name: "", email: "", password: "", role: "intern", department: "" });
@@ -161,7 +239,7 @@ function AddUserModal({ onClose, onSuccess }) {
   };
 
   return (
-    <Modal title="Add New Intern" onClose={onClose}>
+    <Modal title="Add New User" onClose={onClose}>
       <form onSubmit={handleSubmit} className="flex flex-col gap-4">
         {serverError && (
           <div className="bg-red-500/10 border border-red-500/20 rounded-xl px-3 py-2.5 text-red-400 text-sm">
@@ -181,11 +259,7 @@ function AddUserModal({ onClose, onSuccess }) {
             onChange={(e) => set("password", e.target.value)} className={inputCls} />
         </Field>
         <Field label="Role" id="add-role">
-          <select id="add-role" value={form.role} onChange={(e) => set("role", e.target.value)}
-            className={inputCls + " [color-scheme:dark]"}>
-            <option value="intern">Intern</option>
-            <option value="admin">Admin</option>
-          </select>
+          <RoleSelect id="add-role" value={form.role} onChange={(v) => set("role", v)} />
         </Field>
         <Field label="Department" id="add-department" error={errors.department}>
           <input id="add-department" type="text" placeholder="e.g. Engineering" value={form.department}
@@ -248,11 +322,7 @@ function EditUserModal({ user, onClose, onSuccess }) {
             onChange={(e) => set("department", e.target.value)} className={inputCls} />
         </Field>
         <Field label="Role" id="edit-role">
-          <select id="edit-role" value={form.role} onChange={(e) => set("role", e.target.value)}
-            className={inputCls + " [color-scheme:dark]"}>
-            <option value="intern">Intern</option>
-            <option value="admin">Admin</option>
-          </select>
+          <RoleSelect id="edit-role" value={form.role} onChange={(v) => set("role", v)} />
         </Field>
         <div className="flex gap-3 pt-1">
           <button type="button" onClick={onClose}
@@ -316,6 +386,152 @@ function DeleteModal({ user, onClose, onSuccess }) {
   );
 }
 
+// ─── Import Modal ────────────────────────────────────────
+function ImportModal({ onClose, onSuccess }) {
+  const [file, setFile] = useState(null);
+  const [uploading, setUploading] = useState(false);
+  const [result, setResult] = useState(null);
+  const [serverError, setServerError] = useState("");
+  const fileRef = useRef(null);
+
+  const handleFileChange = (e) => {
+    const f = e.target.files?.[0];
+    if (!f) return;
+    if (!f.name.endsWith(".xlsx")) {
+      setServerError("Only .xlsx files are accepted.");
+      return;
+    }
+    setServerError("");
+    setResult(null);
+    setFile(f);
+  };
+
+  const handleDrop = (e) => {
+    e.preventDefault();
+    const f = e.dataTransfer.files?.[0];
+    if (!f) return;
+    if (!f.name.endsWith(".xlsx")) { setServerError("Only .xlsx files are accepted."); return; }
+    setServerError("");
+    setResult(null);
+    setFile(f);
+  };
+
+  const handleSubmit = async () => {
+    if (!file) { setServerError("Please select a .xlsx file."); return; }
+    setUploading(true);
+    setServerError("");
+    try {
+      const res = await importAttendance(file);
+      setResult(res);
+      onSuccess(res);
+    } catch (err) {
+      setServerError(err.message || "Import failed");
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  return (
+    <Modal title="Import Attendance" onClose={onClose}>
+      <div className="flex flex-col gap-5">
+        {/* Drop zone */}
+        {!result && (
+          <div
+            onDragOver={(e) => e.preventDefault()}
+            onDrop={handleDrop}
+            onClick={() => fileRef.current?.click()}
+            className="relative flex flex-col items-center justify-center gap-3 p-8 rounded-xl border-2 border-dashed border-white/10 hover:border-brand-500/40 bg-white/3 hover:bg-brand-500/5 cursor-pointer transition-all duration-200 group"
+          >
+            <input
+              ref={fileRef}
+              type="file"
+              accept=".xlsx"
+              className="sr-only"
+              onChange={handleFileChange}
+              id="import-file-input"
+            />
+            <div className="w-12 h-12 rounded-xl bg-brand-500/10 flex items-center justify-center group-hover:bg-brand-500/20 transition-colors">
+              <svg className="w-6 h-6 text-brand-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 13h6m-3-3v6m5 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+            </div>
+            {file ? (
+              <div className="text-center">
+                <p className="text-white font-medium text-sm">{file.name}</p>
+                <p className="text-xs text-surface-200/40 mt-0.5">{(file.size / 1024).toFixed(1)} KB — click to change</p>
+              </div>
+            ) : (
+              <div className="text-center">
+                <p className="text-sm text-surface-200/60">Drop your <span className="text-white font-medium">.xlsx</span> file here</p>
+                <p className="text-xs text-surface-200/30 mt-0.5">or click to browse</p>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Results summary */}
+        {result && (
+          <div className="rounded-xl overflow-hidden border border-white/10">
+            <div className="px-4 py-3 bg-emerald-500/10 border-b border-white/5 flex items-center gap-2">
+              <svg className="w-4 h-4 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <p className="text-sm font-semibold text-emerald-300">Import Complete</p>
+            </div>
+            <div className="p-4 grid grid-cols-3 gap-3">
+              <div className="text-center">
+                <p className="text-2xl font-bold text-white">{result.imported}</p>
+                <p className="text-xs text-surface-200/40 mt-0.5">New Records</p>
+              </div>
+              <div className="text-center">
+                <p className="text-2xl font-bold text-amber-300">{result.overwritten}</p>
+                <p className="text-xs text-surface-200/40 mt-0.5">Overwritten</p>
+              </div>
+              <div className="text-center">
+                <p className="text-2xl font-bold text-surface-200/50">{result.skipped}</p>
+                <p className="text-xs text-surface-200/40 mt-0.5">Skipped</p>
+              </div>
+            </div>
+            {result.unmatched?.length > 0 && (
+              <div className="px-4 pb-4">
+                <p className="text-xs text-red-400 font-medium mb-1.5">Unmatched emails ({result.unmatched.length}):</p>
+                <ul className="flex flex-col gap-1">
+                  {result.unmatched.map((email) => (
+                    <li key={email} className="text-xs text-red-300/70 font-mono bg-red-500/5 px-2.5 py-1 rounded-lg">{email}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
+        )}
+
+        {serverError && (
+          <div className="bg-red-500/10 border border-red-500/20 rounded-xl px-3 py-2.5 text-red-400 text-sm">
+            {serverError}
+          </div>
+        )}
+
+        <div className="flex gap-3">
+          <button type="button" onClick={onClose}
+            className="flex-1 py-2.5 rounded-xl text-sm text-surface-200/60 hover:text-white hover:bg-white/5 transition-all">
+            {result ? "Close" : "Cancel"}
+          </button>
+          {!result && (
+            <button
+              id="import-confirm-button"
+              onClick={handleSubmit}
+              disabled={uploading || !file}
+              className="flex-1 py-2.5 rounded-xl text-sm font-semibold bg-gradient-to-r from-brand-500 to-brand-400 text-white hover:opacity-90 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+            >
+              {uploading ? <><Spinner /> Importing…</> : "Import"}
+            </button>
+          )}
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
 // ─── Toggle Switch ────────────────────────────────────────
 function ToggleSwitch({ checked, onChange, disabled, loading }) {
   return (
@@ -368,6 +584,9 @@ export default function AdminDashboard({ user, onLogout }) {
   const [editTarget, setEditTarget] = useState(null);
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [togglingId, setTogglingId] = useState(null);
+
+  // ── Import modal
+  const [showImportModal, setShowImportModal] = useState(false);
 
   // ── Toasts
   const [toasts, setToasts] = useState([]);
@@ -470,6 +689,15 @@ export default function AdminDashboard({ user, onLogout }) {
           onSuccess={(msg) => { showToast(msg); setDeleteTarget(null); fetchUsers(); fetchAttendance(); }}
         />
       )}
+      {showImportModal && (
+        <ImportModal
+          onClose={() => setShowImportModal(false)}
+          onSuccess={(res) => {
+            fetchAttendance();
+            showToast(`Imported ${res.imported} record(s), ${res.overwritten} overwritten.`);
+          }}
+        />
+      )}
 
       {/* ── Header */}
       <header className="flex flex-wrap items-center justify-between gap-4 mb-8">
@@ -558,16 +786,20 @@ export default function AdminDashboard({ user, onLogout }) {
       {/* ── Tab Bar */}
       <div className="flex gap-1 mb-6 p-1 glass rounded-xl w-fit animate-slide-up" style={{ animationDelay: "0.18s" }}>
         {[
-          { key: "attendance", label: "Attendance", icon: (
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-            </svg>
-          )},
-          { key: "users", label: "Users", icon: (
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
-            </svg>
-          )},
+          {
+            key: "attendance", label: "Attendance", icon: (
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+              </svg>
+            )
+          },
+          {
+            key: "users", label: "Users", icon: (
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+              </svg>
+            )
+          },
         ].map((tab) => (
           <button
             key={tab.key}
@@ -633,6 +865,16 @@ export default function AdminDashboard({ user, onLogout }) {
                   Clear Filters
                 </button>
               )}
+              <button
+                id="import-attendance-button"
+                onClick={() => setShowImportModal(true)}
+                className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold bg-gradient-to-r from-brand-500 to-brand-400 text-white hover:opacity-90 transition-all shadow-lg shadow-brand-500/20 ml-auto"
+              >
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                </svg>
+                Import Attendance
+              </button>
             </div>
           </div>
 
@@ -699,10 +941,17 @@ export default function AdminDashboard({ user, onLogout }) {
                             <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs bg-surface-200/5 text-surface-200/50">
                               Completed
                             </span>
-                          ) : (
+                          ) : record.date === new Date().toISOString().split("T")[0] ? (
                             <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs bg-brand-500/10 text-brand-400">
                               <span className="w-1.5 h-1.5 rounded-full bg-brand-400 pulse-dot" />
                               Active
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs bg-red-500/10 text-red-400">
+                              <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                              </svg>
+                              Incomplete
                             </span>
                           )}
                         </td>
@@ -745,7 +994,7 @@ export default function AdminDashboard({ user, onLogout }) {
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
                 </svg>
-                Add Intern
+                Add User
               </button>
             </div>
 
