@@ -60,8 +60,9 @@ router.get("/stats", async (req, res) => {
     // Present today
     const { count: presentToday } = await supabase
       .from("attendance")
-      .select("*", { count: "exact", head: true })
-      .eq("date", today);
+      .select("*, users!inner(role)", { count: "exact", head: true })
+      .eq("date", today)
+      .eq("users.role", "intern");
 
     // Average hours (from records that have duration)
     const { data: durationData } = await supabase
@@ -126,8 +127,8 @@ router.post("/users", async (req, res) => {
 
     if (authError) {
       if (authError.message?.toLowerCase().includes("already registered") ||
-          authError.message?.toLowerCase().includes("already exists") ||
-          authError.code === "email_exists") {
+        authError.message?.toLowerCase().includes("already exists") ||
+        authError.code === "email_exists") {
         return res.status(409).json({ error: "A user with this email already exists." });
       }
       throw authError;

@@ -152,3 +152,51 @@ Unique constraint: one attendance record per `(user_id, date)`.
 2. **Time-out** = recorded when intern clicks the button
 3. **Auto-save on logout** = if the intern logs out without clicking "Record Time Out", time-out is auto-saved
 4. **Duration** = computed in minutes from `time_in` to `time_out`
+
+---
+
+## Supabase Cron Job
+
+The system uses a scheduled PostgreSQL function to automatically record time-out
+for interns who forgot to log out at the end of the day.
+
+  ### Setup
+
+  1. Go to **Supabase Dashboard** → **SQL Editor**
+  2. Paste and run the following:
+
+  ```sql
+      -- Enable pg_cron extension
+      create extension if not exists pg_cron;
+
+      -- Create the auto time-out function
+      create or replace function public.auto_timeout_missing_records()
+      returns void as $$
+      declare
+        end_of_day timestamptz;
+      begin
+        end_of_day := (current_date + time '10:00:00') at time zone 'UTC';
+
+        update public.attendance
+        set
+          time_out = end_of_day,
+          duration_minutes = round(extract(epoch from (end_of_day - time_in)) / 60)
+        where
+          date = current_date
+          and time_out is null;
+      end;
+      $$ language plpgsql security definer;
+
+      -- Schedule it to run every day at 6:00 PM Philippine Time (UTC+8)
+      select cron.schedule(
+        'auto-timeout-missing-records',
+        '0 10 * * *',
+        'select public.auto_timeout_missing_records();'
+      );
+  ```
+
+  ### Behavior
+
+  - Runs every day at **6:00 PM PHT**
+  - Only affects records from the **current day** with no time-out
+  - Records that already have a time-out are untouched
