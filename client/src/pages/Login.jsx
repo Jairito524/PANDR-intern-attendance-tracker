@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { supabase } from "../lib/supabaseClient";
-import { recordTimeIn } from "../lib/api";
 
 export default function Login({ onLogin }) {
   const [email, setEmail] = useState("");
@@ -22,21 +21,6 @@ export default function Login({ onLogin }) {
       });
 
       if (authError) throw authError;
-
-      // Auto-record time-in on login
-      try {
-        await recordTimeIn();
-      } catch (timeInErr) {
-        // Check if this is an IP restriction error
-        if (timeInErr.code === "ACCESS_DENIED" || timeInErr.status === 403) {
-          setAccessDenied(true);
-          // Sign out since they can't use the system
-          await supabase.auth.signOut();
-          setLoading(false);
-          return;
-        }
-        console.warn("Time-in recording note:", timeInErr.message);
-      }
 
       onLogin(data.session);
     } catch (err) {
