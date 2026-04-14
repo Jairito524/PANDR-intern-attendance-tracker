@@ -162,8 +162,21 @@ router.post("/users", async (req, res) => {
 router.patch("/users/:id", async (req, res) => {
   try {
     const { id } = req.params;
-    const { name, department, role, is_active } = req.body;
+    const { name, department, role, is_active, password } = req.body;
 
+    // ── Handle optional password update via Supabase Auth ──
+    if (password && typeof password === "string" && password.trim().length > 0) {
+      if (password.length < 8) {
+        return res.status(400).json({ error: "Password must be at least 8 characters" });
+      }
+      const { error: authError } = await supabase.auth.admin.updateUserById(id, { password });
+      if (authError) {
+        console.error("Password update error:", authError);
+        return res.status(500).json({ error: authError.message || "Failed to update password" });
+      }
+    }
+
+    // ── Handle profile field updates ──
     const updates = {};
     if (name !== undefined) updates.name = name;
     if (department !== undefined) updates.department = department;
@@ -171,7 +184,8 @@ router.patch("/users/:id", async (req, res) => {
     if (is_active !== undefined) updates.is_active = is_active;
 
     if (Object.keys(updates).length === 0) {
-      return res.status(400).json({ error: "No valid fields to update" });
+      // Password-only update — no profile fields to change
+      return res.json({ user: { id } });
     }
 
     const { data, error } = await supabase

@@ -63,8 +63,14 @@ export const getAdminStats = () => authFetch("/api/admin/stats");
 export const getAdminUsers = () => authFetch("/api/admin/users");
 export const createAdminUser = (body) =>
   authFetch("/api/admin/users", { method: "POST", body: JSON.stringify(body) });
-export const updateAdminUser = (id, body) =>
-  authFetch(`/api/admin/users/${id}`, { method: "PATCH", body: JSON.stringify(body) });
+export const updateAdminUser = (id, body) => {
+  // Only include password if it's a non-empty string
+  const payload = { ...body };
+  if (!payload.password || typeof payload.password !== "string" || !payload.password.trim()) {
+    delete payload.password;
+  }
+  return authFetch(`/api/admin/users/${id}`, { method: "PATCH", body: JSON.stringify(payload) });
+};
 export const deleteAdminUser = (id) =>
   authFetch(`/api/admin/users/${id}`, { method: "DELETE" });
 

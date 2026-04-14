@@ -37,7 +37,7 @@ app.use("/api/attendance", authMiddleware, attendanceRoutes);
 app.use("/api/admin", authMiddleware, adminRoutes);
 
 // ─── Start ──────────────────────────────────────────────
-app.listen(PORT, () => {
+app.listen(PORT, "0.0.0.0", () => {
   console.log(`✓ Server running on http://localhost:${PORT}`);
   const officeIps = process.env.ALLOWED_OFFICE_IP;
   if (officeIps) {
