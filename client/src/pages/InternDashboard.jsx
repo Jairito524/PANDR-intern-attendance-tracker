@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { getTodayAttendance, getAttendanceHistory, recordTimeOut } from "../lib/api";
 
 function formatTime(iso) {
@@ -95,10 +95,57 @@ export default function InternDashboard({ user, onLogout }) {
 
   // Compute live duration if clocked in but not clocked out
   let liveDuration = null;
+  let liveElapsedMinutes = 0;
   if (today?.time_in && !today?.time_out) {
-    const elapsed = Math.round((currentTime - new Date(today.time_in)) / 60000);
-    liveDuration = formatDuration(elapsed);
+    liveElapsedMinutes = Math.round((currentTime - new Date(today.time_in)) / 60000);
+    liveDuration = formatDuration(liveElapsedMinutes);
   }
+
+  // ── OJT Progress Tracker ────────────────────────────────
+  const OJT_KEY = user?.id ? `ojt_required_hours_${user.id}` : null;
+  const [requiredHours, setRequiredHours] = useState(() => {
+    if (!OJT_KEY) return 480;
+    const saved = localStorage.getItem(OJT_KEY);
+    return saved ? Number(saved) : 480;
+  });
+  const [editingHours, setEditingHours] = useState(false);
+  const [draftHours, setDraftHours] = useState(String(requiredHours));
+  const hoursInputRef = useRef(null);
+
+  // Persist to localStorage whenever requiredHours changes
+  useEffect(() => {
+    if (OJT_KEY) localStorage.setItem(OJT_KEY, String(requiredHours));
+  }, [requiredHours, OJT_KEY]);
+
+  // Focus the input when editing starts
+  useEffect(() => {
+    if (editingHours) hoursInputRef.current?.focus();
+  }, [editingHours]);
+
+  const saveHours = () => {
+    const val = parseInt(draftHours, 10);
+    if (!isNaN(val) && val > 0) setRequiredHours(val);
+    else setDraftHours(String(requiredHours)); // revert bad input
+    setEditingHours(false);
+  };
+
+  // Compute OJT stats
+  // Sum completed history records (exclude today's in-progress row since we use liveElapsedMinutes)
+  const completedMinutes = history
+    .filter((r) => r.duration_minutes != null)
+    .reduce((sum, r) => sum + r.duration_minutes, 0);
+  const totalMinutes = completedMinutes + liveElapsedMinutes;
+  const totalHours = Math.round((totalMinutes / 60) * 10) / 10;
+  const remaining = Math.max(0, requiredHours - totalHours);
+  const pct = Math.min(100, Math.round((totalHours / requiredHours) * 1000) / 10);
+  const isComplete = totalHours >= requiredHours;
+
+  // Average daily hours from completed records only (to estimate days remaining)
+  const completedDays = history.filter((r) => r.duration_minutes != null).length;
+  const avgDailyHours =
+    completedDays > 0 ? Math.round((completedMinutes / 60 / completedDays) * 10) / 10 : 0;
+  const estDays =
+    avgDailyHours > 0 ? Math.ceil(remaining / avgDailyHours) : null;
 
   return (
     <div className="min-h-screen p-4 md:p-8 animate-fade-in">
@@ -264,6 +311,99 @@ export default function InternDashboard({ user, onLogout }) {
               ? "Clocked In"
               : "Not Clocked In"}
           </p>
+        </div>
+      </div>
+
+      {/* ── OJT Progress Tracker */}
+      <div className="glass rounded-2xl p-6 mb-6 animate-slide-up" style={{ animationDelay: "0.28s" }}>
+        {/* Header row */}
+        <div className="flex items-center justify-between mb-5">
+          <div>
+            <h2 className="text-base font-semibold text-white">OJT Progress Tracker</h2>
+            <p className="text-xs text-surface-200/40 mt-0.5">Track your required internship hours</p>
+          </div>
+          {/* Required-hours inline editor */}
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-surface-200/40 uppercase tracking-wider font-medium">Required</span>
+            {editingHours ? (
+              <div className="flex items-center gap-1.5">
+                <input
+                  ref={hoursInputRef}
+                  type="number"
+                  min="1"
+                  value={draftHours}
+                  onChange={(e) => setDraftHours(e.target.value)}
+                  onBlur={saveHours}
+                  onKeyDown={(e) => { if (e.key === "Enter") saveHours(); if (e.key === "Escape") { setDraftHours(String(requiredHours)); setEditingHours(false); } }}
+                  className="w-20 px-2 py-1 rounded-lg bg-transparent border border-brand-500/40 text-white text-sm text-center focus:outline-none focus:ring-2 focus:ring-brand-500/50 tabular-nums [color-scheme:dark]"
+                />
+                <span className="text-xs text-surface-200/50">hrs</span>
+              </div>
+            ) : (
+              <button
+                id="edit-required-hours-button"
+                onClick={() => { setDraftHours(String(requiredHours)); setEditingHours(true); }}
+                className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg hover:bg-white/5 transition-colors group"
+              >
+                <span className="text-white font-semibold tabular-nums">{requiredHours}</span>
+                <span className="text-xs text-surface-200/40">hrs</span>
+                <svg className="w-3.5 h-3.5 text-surface-200/30 group-hover:text-brand-400 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                </svg>
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Stats row */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-5">
+          <div className="bg-white/3 rounded-xl p-3.5">
+            <p className="text-xs text-surface-200/40 uppercase tracking-wider font-medium mb-1">Rendered</p>
+            <p className="text-2xl font-bold text-white tabular-nums">{totalHours}<span className="text-sm font-normal text-surface-200/40 ml-1">h</span></p>
+          </div>
+          <div className="bg-white/3 rounded-xl p-3.5">
+            <p className="text-xs text-surface-200/40 uppercase tracking-wider font-medium mb-1">Remaining</p>
+            {isComplete ? (
+              <p className="text-lg font-bold text-brand-400">Done! 🎉</p>
+            ) : (
+              <p className="text-2xl font-bold text-white tabular-nums">{remaining.toFixed(1)}<span className="text-sm font-normal text-surface-200/40 ml-1">h</span></p>
+            )}
+          </div>
+          <div className="bg-white/3 rounded-xl p-3.5">
+            <p className="text-xs text-surface-200/40 uppercase tracking-wider font-medium mb-1">Completed</p>
+            <p className={`text-2xl font-bold tabular-nums ${isComplete ? "text-brand-400" : "text-white"}`}>{pct.toFixed(1)}<span className="text-sm font-normal text-surface-200/40 ml-0.5">%</span></p>
+          </div>
+          <div className="bg-white/3 rounded-xl p-3.5">
+            <p className="text-xs text-surface-200/40 uppercase tracking-wider font-medium mb-1">Est. Days Left</p>
+            <p className="text-2xl font-bold text-white tabular-nums">
+              {isComplete ? (
+                <span className="text-brand-400">0</span>
+              ) : estDays !== null ? (
+                estDays
+              ) : (
+                <span className="text-surface-200/30 text-lg">—</span>
+              )}
+            </p>
+          </div>
+        </div>
+
+        {/* Progress bar */}
+        <div>
+          <div className="flex items-center justify-between mb-1.5">
+            <span className="text-xs text-surface-200/40">{totalHours}h of {requiredHours}h</span>
+            <span className={`text-xs font-semibold ${isComplete ? "text-brand-400" : "text-surface-200/60"}`}>{pct.toFixed(1)}%</span>
+          </div>
+          <div className="w-full h-2.5 rounded-full bg-white/5 overflow-hidden">
+            <div
+              className="h-full rounded-full bg-gradient-to-r from-brand-600 to-brand-400 transition-all duration-700 ease-out"
+              style={{ width: `${pct}%` }}
+            />
+          </div>
+          {isComplete && (
+            <p className="mt-2.5 text-center text-sm font-semibold text-brand-400">
+              🎉 Congratulations! You've completed your OJT hours!
+            </p>
+          )}
         </div>
       </div>
 

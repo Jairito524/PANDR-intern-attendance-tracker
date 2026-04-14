@@ -10,9 +10,12 @@ A full-stack web application for tracking intern daily attendance. Login auto-re
 
 - **Automatic Time-In** — recorded on login; one record per intern per day
 - **Manual Time-Out** — intern clicks a button or auto-saved on logout
-- **Intern Dashboard** — today's status, live clock, attendance history table
-- **Admin Dashboard** — stats cards, date/name filters, full attendance log
-- **Role-Based Access** — separate views for `intern` and `admin` roles
+- **Intern Dashboard** — today's status, live clock, attendance history table, and an **OJT Progress Tracker**
+- **Admin Dashboard** — stats cards, date/name filters, full attendance log, and bulk user management
+- **XLSX Attendance Import** — admins can import attendance via `.xlsx` (SheetJS + multer)
+- **Custom UI Elements** — custom role dropdowns replacing native `<select>` in user modals
+- **Role-Based Access** — separate views for `intern` and `admin` roles, secured by RLS policies
+- **Network Accessibility** — Server bound to `0.0.0.0` for local network access
 - **Supabase Auth** — email/password login, no public sign-up
 
 ---
@@ -104,13 +107,14 @@ Open **two terminals**:
 ```bash
 # Terminal 1 — Backend
 cd server
-npm run dev
-# → Server running on http://localhost:3001
+## Run with network access (accessible to other devices on network)
+npm run dev -- --host 0.0.0.0
+# → Server bound to 0.0.0.0:3001
 
 # Terminal 2 — Frontend
 cd client
-npm run dev
-# → App running on http://localhost:5173
+npm run dev -- --host 0.0.0.0
+# → App running on http://localhost:5173 (and your local IP)
 ```
 
 ### 5. Use the App
@@ -132,7 +136,20 @@ npm run dev
 | `GET` | `/api/attendance/today` | Bearer | Get today's attendance record |
 | `GET` | `/api/attendance/history` | Bearer | Get all past records |
 | `GET` | `/api/admin/attendance` | Bearer (admin) | All records; `?date=` `?name=` |
-| `GET` | `/api/admin/stats` | Bearer (admin) | Stats: totals, present, avg hours |
+| `GET` | `/api/admin/stats` | Bearer (admin) | Stats (total interns, present today, avg hours). Fix: present today excludes admins |
+| `GET` | `/api/admin/users` | Bearer (admin) | Get all users |
+| `POST` | `/api/admin/users` | Bearer (admin) | Create a new user |
+| `PATCH` | `/api/admin/users/:id`| Bearer (admin) | Update a user's details |
+| `DELETE` | `/api/admin/users/:id`| Bearer (admin) | Delete a user |
+| `POST` | `/api/admin/import` | Bearer (admin) | Bulk XLSX attendance import (multer + SheetJS) |
+
+---
+
+## Notable Recent Fixes
+
+- **RLS Policy Fix**: Merged two `SELECT` policies into one for intern profile fetching to resolve redundancy.
+- **Admin Stat Fix**: `presentToday` calculation updated to only count `intern` role users, ignoring admins.
+- **Auto time-out cron job**: Automatically runs at 6:00 PM PHT to sign out users.
 
 ---
 
