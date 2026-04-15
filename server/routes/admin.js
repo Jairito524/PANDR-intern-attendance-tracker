@@ -224,6 +224,26 @@ router.delete("/users/:id", async (req, res) => {
 // attendance records. Returns { imported, skipped, overwritten, unmatched }.
 const upload = multer({ storage: multer.memoryStorage() });
 
+// Parse Timestamp: '4/12/2026 7:40:16' → ISO string in PHT
+function parseTimestamp(str) {
+  if (!str) return null;
+  const [datePart, timePart] = String(str).trim().split(" ");
+  if (!datePart || !timePart) return null;
+  const [month, day, year] = datePart.split("/");
+  const fullStr = `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}T${timePart.padStart(8, "0")}+08:00`;
+  const d = new Date(fullStr);
+  return isNaN(d.getTime()) ? null : d;
+}
+
+// Parse Attendance Date: '4/12/26' → 'YYYY-MM-DD'
+function parseAttendanceDate(str) {
+  if (!str) return null;
+  const [month, day, year] = String(str).trim().split("/");
+  if (!month || !day || !year) return null;
+  const fullYear = year.length === 2 ? "20" + year : year;
+  return `${fullYear}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`;
+}
+
 router.post("/import", upload.single("file"), async (req, res) => {
   try {
     if (!req.file) {
@@ -231,9 +251,15 @@ router.post("/import", upload.single("file"), async (req, res) => {
     }
 
     // ── Parse the workbook from the in-memory buffer
-    const workbook = XLSX.read(req.file.buffer, { type: "buffer", cellDates: true });
+    // raw:false forces SheetJS to output dates as plain strings
+    // (e.g. "4/12/2026 7:40:16") instead of JS Date objects, avoiding UTC bugs.
+    const workbook = XLSX.read(req.file.buffer, { type: "buffer" });
     const sheetName = workbook.SheetNames[0];
-    const rows = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName], { defval: null });
+    const rows = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName], {
+      raw: false,
+      dateNF: "yyyy-mm-dd hh:mm:ss",
+      defval: null,
+    });
 
     if (!rows.length) {
       return res.json({ imported: 0, skipped: 0, overwritten: 0, unmatched: [] });
@@ -252,8 +278,6 @@ router.post("/import", upload.single("file"), async (req, res) => {
 
     // ── Group rows into a map keyed by "user_id|YYYY-MM-DD"
     // Each entry: { time_in: Date|null, time_out: Date|null }
-    const PHT_OFFSET_MS = 8 * 60 * 60 * 1000; // UTC+8
-
     const punchMap = {}; // key → { time_in, time_out }
     const unmatchedEmails = new Set();
 
@@ -280,34 +304,14 @@ router.post("/import", upload.single("file"), async (req, res) => {
         continue;
       }
 
-      // Resolve the attendance date (prefer explicit "Attendance Date" column)
-      let attendanceDate;
-      if (rawDate instanceof Date) {
-        attendanceDate = rawDate.toISOString().split("T")[0];
-      } else if (rawDate) {
-        // SheetJS may return a serial number for date-only cells
-        const parsed = XLSX.SSF.parse_date_code
-          ? null
-          : new Date(rawDate);
-        const d = parsed || new Date(rawDate);
-        attendanceDate = d.toISOString().split("T")[0];
-      } else {
-        // Fallback: use the date part of the Timestamp
-        const ts = rawTimestamp instanceof Date ? rawTimestamp : new Date(rawTimestamp);
-        // Interpret ts as Philippine Time (UTC+8) → derive local date
-        const phtDate = new Date(ts.getTime() + PHT_OFFSET_MS);
-        attendanceDate = phtDate.toISOString().split("T")[0];
-      }
+      // Parse the punch timestamp as PHT → Date object (internally UTC)
+      const punchTimeUTC = parseTimestamp(rawTimestamp);
+      if (!punchTimeUTC) continue;
 
-      // Convert the Timestamp to UTC (subtract 8 h if it came in as PHT)
-      let punchTimeUTC;
-      if (rawTimestamp instanceof Date) {
-        // SheetJS with cellDates:true already gives a JS Date.
-        // Google Forms exports in the spreadsheet's timezone (assume PHT).
-        punchTimeUTC = new Date(rawTimestamp.getTime() - PHT_OFFSET_MS);
-      } else {
-        punchTimeUTC = new Date(new Date(rawTimestamp).getTime() - PHT_OFFSET_MS);
-      }
+      // Resolve the attendance date (prefer explicit "Attendance Date" column)
+      const attendanceDate = parseAttendanceDate(rawDate)
+        || parseAttendanceDate(String(rawTimestamp).trim().split(" ")[0]);
+      if (!attendanceDate) continue;
 
       const key = `${userId}|${attendanceDate}`;
       if (!punchMap[key]) {
