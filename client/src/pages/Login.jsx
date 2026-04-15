@@ -1,17 +1,24 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { supabase } from "../lib/supabaseClient";
 
-export default function Login({ onLogin }) {
+export default function Login({ onLogin, disabledMessage = "" }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [accessDenied, setAccessDenied] = useState(false);
+  const [accountDisabled, setAccountDisabled] = useState(disabledMessage);
+
+  // Sync prop changes (e.g. when App sets disabledMessage after sign-out)
+  useEffect(() => {
+    if (disabledMessage) setAccountDisabled(disabledMessage);
+  }, [disabledMessage]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
     setAccessDenied(false);
+    setAccountDisabled("");
     setLoading(true);
 
     try {
@@ -68,6 +75,30 @@ export default function Login({ onLogin }) {
                   <p className="text-red-300 font-semibold text-sm">🔒 Access Denied</p>
                   <p className="text-red-400/80 text-sm mt-1 leading-relaxed">
                     You must be connected to the PANDR office network to log in.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Account Disabled Banner */}
+        {accountDisabled && (
+          <div
+            id="account-disabled-banner"
+            className="mb-6 rounded-2xl overflow-hidden animate-slide-up"
+          >
+            <div className="bg-gradient-to-r from-red-500/20 via-brand-500/15 to-red-500/20 border border-red-500/30 rounded-2xl p-5">
+              <div className="flex items-start gap-3">
+                <div className="w-10 h-10 rounded-xl bg-red-500/20 flex items-center justify-center shrink-0 mt-0.5">
+                  <svg className="w-5 h-5 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
+                  </svg>
+                </div>
+                <div>
+                  <p className="text-red-300 font-semibold text-sm">🚫 Account Disabled</p>
+                  <p className="text-red-400/80 text-sm mt-1 leading-relaxed">
+                    {accountDisabled}
                   </p>
                 </div>
               </div>

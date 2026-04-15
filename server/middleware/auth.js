@@ -53,7 +53,10 @@ export default async function authMiddleware(req, res, next) {
     }
 
     if (profile.is_active === false) {
-      return res.status(403).json({ error: "Your account has been disabled. Contact your admin." });
+      return res.status(403).json({
+        error: "ACCOUNT_DISABLED",
+        message: "Your account has been disabled. Please contact your administrator.",
+      });
     }
 
     req.user = profile;

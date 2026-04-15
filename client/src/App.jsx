@@ -11,6 +11,7 @@ export default function App() {
   const [session, setSession] = useState(null);
   const [userProfile, setUserProfile] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [disabledMessage, setDisabledMessage] = useState("");
   const navigate = useNavigate();
 
   // Listen for auth state changes
@@ -60,6 +61,17 @@ export default function App() {
           role: "intern",
           department: "",
         });
+      } else if (data.is_active === false) {
+        // Account is disabled — sign out immediately
+        console.warn("⛔ Account disabled for user:", data.email);
+        await supabase.auth.signOut();
+        setSession(null);
+        setUserProfile(null);
+        setDisabledMessage(
+          "Your account has been disabled. Please contact your administrator for assistance."
+        );
+        navigate("/login");
+        return;
       } else {
         console.log("✅ Profile loaded, role:", data.role);
         setUserProfile(data);
@@ -72,6 +84,7 @@ export default function App() {
   };
 
   const handleLogin = (newSession) => {
+    setDisabledMessage(""); // Clear any previous disabled message
     setSession(newSession);
   };
 
@@ -115,7 +128,7 @@ export default function App() {
             isAuthenticated ? (
               <Navigate to={isAdmin ? "/admin" : "/timein"} replace />
             ) : (
-              <Login onLogin={handleLogin} />
+              <Login onLogin={handleLogin} disabledMessage={disabledMessage} />
             )
           }
         />
