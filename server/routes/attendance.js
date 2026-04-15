@@ -4,9 +4,14 @@ import supabase from "../lib/supabase.js";
 const router = Router();
 
 // ─── POST /api/attendance/time-in ────────────────────────
-// Called automatically on login. Creates today's record if none exists.
+// Called when intern clicks "Record Time-In" on the Time-In page.
 router.post("/time-in", async (req, res) => {
   try {
+    // Admins do not record attendance
+    if (req.user.role === "admin") {
+      return res.status(403).json({ error: "Admins do not record attendance" });
+    }
+
     const userId = req.user.id;
     const today = new Date().toISOString().split("T")[0]; // YYYY-MM-DD
 
@@ -43,9 +48,14 @@ router.post("/time-in", async (req, res) => {
 });
 
 // ─── POST /api/attendance/time-out ───────────────────────
-// Called when intern clicks "Record Time Out" or logs out.
+// Called when intern clicks "Record Time Out" from the dashboard.
 router.post("/time-out", async (req, res) => {
   try {
+    // Admins do not record attendance
+    if (req.user.role === "admin") {
+      return res.status(403).json({ error: "Admins do not record attendance" });
+    }
+
     const userId = req.user.id;
     const today = new Date().toISOString().split("T")[0];
 

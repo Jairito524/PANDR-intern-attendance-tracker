@@ -35,6 +35,8 @@ export default function InternDashboard({ user, onLogout }) {
   const [timeOutLoading, setTimeOutLoading] = useState(false);
   const [error, setError] = useState("");
   const [successMsg, setSuccessMsg] = useState("");
+  const [showTimeOutModal, setShowTimeOutModal] = useState(false);
+  const [timeOutError, setTimeOutError] = useState("");
   const [currentTime, setCurrentTime] = useState(new Date());
 
   // Live clock
@@ -65,15 +67,17 @@ export default function InternDashboard({ user, onLogout }) {
 
   const handleTimeOut = async () => {
     setTimeOutLoading(true);
+    setTimeOutError("");
     setError("");
     setSuccessMsg("");
     try {
       const res = await recordTimeOut();
       setToday(res.attendance);
       setSuccessMsg("Time-out recorded successfully!");
+      setShowTimeOutModal(false);
       fetchData();
     } catch (err) {
-      setError(err.message);
+      setTimeOutError(err.message);
     } finally {
       setTimeOutLoading(false);
     }
@@ -407,31 +411,105 @@ export default function InternDashboard({ user, onLogout }) {
         </div>
       </div>
 
+      {/* Time Out Confirmation Modal */}
+      {showTimeOutModal && (
+        <div
+          className="fixed inset-0 z-40 flex items-center justify-center p-4"
+          style={{ background: "rgba(0,0,0,0.6)", backdropFilter: "blur(4px)" }}
+          onClick={(e) => { if (e.target === e.currentTarget) { setShowTimeOutModal(false); setTimeOutError(""); } }}
+        >
+          <div className="w-full max-w-md rounded-2xl glass border border-white/10 shadow-2xl animate-slide-up">
+            {/* Header */}
+            <div className="flex items-center justify-between p-5 border-b border-white/5">
+              <h3 className="text-lg font-semibold text-white">Confirm Time Out</h3>
+              <button
+                onClick={() => { setShowTimeOutModal(false); setTimeOutError(""); }}
+                className="w-8 h-8 rounded-lg flex items-center justify-center text-surface-200/50 hover:text-white hover:bg-white/5 transition-all"
+              >
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            {/* Body */}
+            <div className="p-5 flex flex-col gap-5">
+              {/* Info block */}
+              <div className="flex items-start gap-3 p-4 rounded-xl bg-brand-500/10 border border-brand-500/20">
+                <div className="w-10 h-10 rounded-xl bg-brand-500/20 flex items-center justify-center shrink-0 mt-0.5">
+                  <svg className="w-5 h-5 text-brand-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </div>
+                <div>
+                  <p className="text-sm text-white font-medium">
+                    Current time: <span className="text-brand-400 font-bold tabular-nums">{currentTime.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: true })}</span>
+                  </p>
+                  {liveDuration && (
+                    <p className="text-sm text-surface-200/60 mt-1">
+                      You've been clocked in for <span className="text-white font-semibold">{liveDuration}</span>
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              {/* Error inside modal */}
+              {timeOutError && (
+                <div className="bg-red-500/10 border border-red-500/20 rounded-xl px-3 py-2.5 text-red-400 text-sm flex items-start gap-2">
+                  <svg className="w-4 h-4 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  {timeOutError}
+                </div>
+              )}
+
+              {/* Actions */}
+              <div className="flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => { setShowTimeOutModal(false); setTimeOutError(""); }}
+                  className="flex-1 py-2.5 rounded-xl text-sm text-surface-200/60 hover:text-white hover:bg-white/5 transition-all"
+                >
+                  Cancel
+                </button>
+                <button
+                  id="confirm-time-out-button"
+                  onClick={handleTimeOut}
+                  disabled={timeOutLoading}
+                  className="flex-1 py-2.5 rounded-xl text-sm font-semibold bg-gradient-to-r from-brand-500 to-brand-400 text-white hover:opacity-90 transition-all flex items-center justify-center gap-2 disabled:opacity-60"
+                >
+                  {timeOutLoading ? (
+                    <>
+                      <svg className="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
+                      </svg>
+                      Recording…
+                    </>
+                  ) : (
+                    "Confirm Time Out"
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Record Time Out Button */}
       {today?.time_in && !today?.time_out && (
         <div className="mb-8 animate-slide-up" style={{ animationDelay: "0.3s" }}>
           <button
             id="record-time-out-button"
-            onClick={handleTimeOut}
-            disabled={timeOutLoading}
-            className="w-full sm:w-auto px-8 py-4 rounded-2xl bg-gradient-to-r from-brand-600 to-brand-500 text-white font-semibold hover:from-brand-500 hover:to-brand-400 focus:outline-none focus:ring-2 focus:ring-brand-500/50 transition-all duration-200 disabled:opacity-50 shadow-lg shadow-brand-600/20 hover:shadow-brand-500/40 text-lg"
+            onClick={() => { setTimeOutError(""); setShowTimeOutModal(true); }}
+            className="w-full sm:w-auto px-8 py-4 rounded-2xl bg-gradient-to-r from-brand-600 to-brand-500 text-white font-semibold hover:from-brand-500 hover:to-brand-400 focus:outline-none focus:ring-2 focus:ring-brand-500/50 transition-all duration-200 shadow-lg shadow-brand-600/20 hover:shadow-brand-500/40 text-lg"
           >
-            {timeOutLoading ? (
-              <span className="flex items-center justify-center gap-2">
-                <svg className="animate-spin w-5 h-5" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
-                </svg>
-                Recording…
-              </span>
-            ) : (
-              <span className="flex items-center justify-center gap-2">
-                <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-                </svg>
-                Record Time Out
-              </span>
-            )}
+            <span className="flex items-center justify-center gap-2">
+              <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+              </svg>
+              Record Time Out
+            </span>
           </button>
         </div>
       )}

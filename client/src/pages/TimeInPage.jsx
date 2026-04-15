@@ -10,6 +10,13 @@ export default function TimeInPage({ user, onLogout }) {
   const [accessDenied, setAccessDenied] = useState(false);
   const [currentTime, setCurrentTime] = useState(new Date());
 
+  // Safety: admins should never see this page
+  useEffect(() => {
+    if (user?.role === "admin") {
+      navigate("/admin", { replace: true });
+    }
+  }, [user, navigate]);
+
   // Live clock — updates every second
   useEffect(() => {
     const interval = setInterval(() => setCurrentTime(new Date()), 1000);

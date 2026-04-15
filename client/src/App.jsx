@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Routes, Route, Navigate, useNavigate } from "react-router-dom";
 import { supabase } from "./lib/supabaseClient";
-import { recordTimeOut, getTodayAttendance } from "./lib/api";
+import { getTodayAttendance } from "./lib/api";
 import Login from "./pages/Login";
 import InternDashboard from "./pages/InternDashboard";
 import AdminDashboard from "./pages/AdminDashboard";
@@ -77,12 +77,6 @@ export default function App() {
 
   const handleLogout = async () => {
     try {
-      try {
-        await recordTimeOut();
-      } catch (err) {
-        console.warn("Auto time-out on logout:", err.message);
-      }
-
       await supabase.auth.signOut();
       setSession(null);
       setUserProfile(null);
