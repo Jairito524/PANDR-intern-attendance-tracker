@@ -996,9 +996,9 @@ export default function AdminDashboard({ user, onLogout }) {
                 {records.length} record{records.length !== 1 ? "s" : ""} found
               </p>
             </div>
-            <div className="overflow-x-auto">
+            <div className="overflow-x-auto overflow-y-auto max-h-[500px]">
               <table className="w-full text-sm">
-                <thead>
+                <thead className="sticky top-0 z-10 bg-[#12141a]">
                   <tr className="text-surface-200/50 text-xs uppercase tracking-wider border-b border-white/5">
                     <th className="text-left px-5 py-3 font-medium">Intern</th>
                     <th className="text-left px-5 py-3 font-medium">Department</th>

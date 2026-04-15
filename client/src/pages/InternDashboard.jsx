@@ -521,9 +521,9 @@ export default function InternDashboard({ user, onLogout }) {
           <p className="text-xs text-surface-200/50 mt-1">Your past attendance records</p>
         </div>
 
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto overflow-y-auto max-h-96">
           <table className="w-full text-sm">
-            <thead>
+            <thead className="sticky top-0 z-10 bg-[#12141a]">
               <tr className="text-surface-200/50 text-xs uppercase tracking-wider border-b border-white/5">
                 <th className="text-left px-5 py-3 font-medium">Date</th>
                 <th className="text-left px-5 py-3 font-medium">Time In</th>
