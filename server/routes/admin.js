@@ -48,6 +48,97 @@ router.get("/attendance", async (req, res) => {
   }
 });
 
+// ─── GET /api/admin/export ───────────────────────────────
+// Downloads the filtered attendance records as a .xlsx file.
+// Accepts the same ?date= and ?name= query params as /attendance.
+router.get("/export", async (req, res) => {
+  try {
+    const { date, name } = req.query;
+
+    let query = supabase
+      .from("attendance")
+      .select("*, users(name, email, department)")
+      .order("date", { ascending: false })
+      .order("time_in", { ascending: false });
+
+    if (date) {
+      query = query.eq("date", date);
+    }
+
+    const { data, error } = await query;
+    if (error) throw error;
+
+    let results = data;
+    if (name) {
+      const lowerName = name.toLowerCase();
+      results = data.filter(
+        (r) =>
+          r.users?.name?.toLowerCase().includes(lowerName) ||
+          r.users?.email?.toLowerCase().includes(lowerName)
+      );
+    }
+
+    // ── Format helpers
+    const today = new Date().toISOString().split("T")[0];
+
+    const fmtTime = (iso) => {
+      if (!iso) return "";
+      return new Date(iso).toLocaleTimeString("en-US", {
+        hour: "2-digit", minute: "2-digit", hour12: true,
+      });
+    };
+
+    const fmtDuration = (mins) => {
+      if (mins == null) return "";
+      return `${Math.floor(mins / 60)}h ${mins % 60}m`;
+    };
+
+    const fmtDate = (dateStr) => {
+      if (!dateStr) return "";
+      return new Date(dateStr + "T00:00:00").toLocaleDateString("en-US", {
+        month: "short", day: "numeric", year: "numeric",
+      });
+    };
+
+    const fmtStatus = (rec) => {
+      if (rec.time_out) return "Completed";
+      if (rec.date === today) return "Active";
+      return "Incomplete";
+    };
+
+    // ── Build worksheet rows
+    const rows = results.map((r) => ({
+      "Name":       r.users?.name || "",
+      "Email":      r.users?.email || "",
+      "Department": r.users?.department || "",
+      "Date":       fmtDate(r.date),
+      "Time In":    fmtTime(r.time_in),
+      "Time Out":   fmtTime(r.time_out),
+      "Duration":   fmtDuration(r.duration_minutes),
+      "Status":     fmtStatus(r),
+    }));
+
+    const worksheet = XLSX.utils.json_to_sheet(rows);
+    const workbook  = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Attendance");
+
+    const buffer = XLSX.write(workbook, { type: "buffer", bookType: "xlsx" });
+
+    // ── Derive filename from active filters
+    let filename = "attendance_all.xlsx";
+    if (name) filename = `attendance_${name.replace(/\s+/g, "_")}.xlsx`;
+    else if (date) filename = `attendance_${date}.xlsx`;
+
+    res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+    res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+    res.send(buffer);
+  } catch (err) {
+    console.error("Admin export error:", err);
+    res.status(500).json({ error: "Export failed" });
+  }
+});
+
+
 // ─── GET /api/admin/stats ───────────────────────────────
 router.get("/stats", async (req, res) => {
   try {

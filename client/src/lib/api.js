@@ -59,6 +59,27 @@ export const getAdminAttendance = (params = {}) => {
 };
 export const getAdminStats = () => authFetch("/api/admin/stats");
 
+export const exportAttendance = async (params = {}) => {
+  const { data: { session } } = await supabase.auth.getSession();
+  const token = session?.access_token;
+  const qs = new URLSearchParams(params).toString();
+  const res = await fetch(`${API_URL}/api/admin/export${qs ? `?${qs}` : ""}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok) throw new Error("Export failed");
+  const blob = await res.blob();
+  // Derive filename from Content-Disposition header if present
+  const disposition = res.headers.get("Content-Disposition") || "";
+  const match = disposition.match(/filename="([^"]+)"/);
+  const filename = match ? match[1] : "attendance_export.xlsx";
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+};
+
 // ─── User Management API ────────────────────────────────
 export const getAdminUsers = () => authFetch("/api/admin/users");
 export const createAdminUser = (body) =>
