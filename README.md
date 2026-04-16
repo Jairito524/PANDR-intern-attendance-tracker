@@ -27,6 +27,7 @@ A full-stack web application for tracking intern daily attendance. After login, 
 - **Date & Name Filters** — filter attendance records by date or intern name/email
 - **Scrollable Records Table** — fixed max height (`max-h-[500px]`) with sticky header
 - **XLSX Attendance Import** — bulk import attendance records via `.xlsx` files (SheetJS + multer)
+- **XLSX Attendance Export** — export the currently filtered attendance records as a `.xlsx` file; filename reflects the active filter (`attendance_Allan.xlsx`, `attendance_2026-04-15.xlsx`, or `attendance_all.xlsx`)
 - **User Management** — add, edit, and delete intern/admin accounts
   - Custom role dropdown (replaces native `<select>`)
   - Optional password change in the Edit User modal (min 8 chars, confirmation field, show/hide toggles)
@@ -183,6 +184,7 @@ npm run dev -- --host 0.0.0.0
 | `PATCH` | `/api/admin/users/:id`| Bearer (admin) | Update user profile and/or password |
 | `DELETE` | `/api/admin/users/:id`| Bearer (admin) | Delete a user (auth + profile) |
 | `POST` | `/api/admin/import` | Bearer (admin) | Bulk XLSX attendance import (multer + SheetJS) |
+| `GET` | `/api/admin/export` | Bearer (admin) | Export filtered records as `.xlsx`; accepts `?date=` `?name=` |
 
 All `/api` routes (except `/api/health`) are protected by IP restriction middleware. All authenticated routes also check `is_active` — disabled accounts receive 403 `ACCOUNT_DISABLED`.
 

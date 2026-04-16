@@ -17,7 +17,18 @@ export default function App() {
   // Listen for auth state changes
   useEffect(() => {
     // Check current session
-    supabase.auth.getSession().then(({ data: { session: currentSession } }) => {
+    supabase.auth.getSession().then(async ({ data: { session: currentSession } }) => {
+      // Remember Me guard — if the user didn't check "Remember Me" on their last
+      // login, we should NOT restore a persisted session on a fresh browser open.
+      // We detect this by checking the flag written to localStorage at login time.
+      if (currentSession && localStorage.getItem("rememberMe") === "false") {
+        // Session exists in storage but user chose not to be remembered —
+        // sign out silently so they land on /login next time they open the browser.
+        await supabase.auth.signOut();
+        setLoading(false);
+        return;
+      }
+
       setSession(currentSession);
       if (currentSession) {
         fetchProfile(currentSession.user.id);

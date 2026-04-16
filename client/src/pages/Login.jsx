@@ -8,6 +8,10 @@ export default function Login({ onLogin, disabledMessage = "" }) {
   const [error, setError] = useState("");
   const [accessDenied, setAccessDenied] = useState(false);
   const [accountDisabled, setAccountDisabled] = useState(disabledMessage);
+  // Pre-fill from saved preference; default true (remembered) on first visit
+  const [rememberMe, setRememberMe] = useState(
+    () => localStorage.getItem("rememberMe") !== "false"
+  );
 
   // Sync prop changes (e.g. when App sets disabledMessage after sign-out)
   useEffect(() => {
@@ -20,6 +24,10 @@ export default function Login({ onLogin, disabledMessage = "" }) {
     setAccessDenied(false);
     setAccountDisabled("");
     setLoading(true);
+
+    // Persist the preference BEFORE sign-in so supabaseClient reads the
+    // correct storage adapter on the next page load / app init.
+    localStorage.setItem("rememberMe", String(rememberMe));
 
     try {
       const { data, error: authError } = await supabase.auth.signInWithPassword({
@@ -149,6 +157,41 @@ export default function Login({ onLogin, disabledMessage = "" }) {
               placeholder="••••••••"
               className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-brand-500/50 focus:border-brand-500/50 transition-all duration-200"
             />
+          </div>
+
+          {/* Remember Me */}
+          <div className="flex items-center gap-3">
+            <div className="relative flex items-center">
+              <input
+                id="remember-me"
+                type="checkbox"
+                checked={rememberMe}
+                onChange={(e) => setRememberMe(e.target.checked)}
+                className="sr-only peer"
+              />
+              <div
+                onClick={() => setRememberMe((v) => !v)}
+                className={`w-4 h-4 rounded flex items-center justify-center border cursor-pointer transition-all duration-150
+                  ${
+                    rememberMe
+                      ? "bg-brand-500 border-brand-500"
+                      : "bg-white/5 border-white/20 hover:border-white/40"
+                  }`}
+              >
+                {rememberMe && (
+                  <svg className="w-2.5 h-2.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                  </svg>
+                )}
+              </div>
+            </div>
+            <label
+              htmlFor="remember-me"
+              className="text-sm text-surface-200/60 cursor-pointer select-none"
+              onClick={() => setRememberMe((v) => !v)}
+            >
+              Remember me
+            </label>
           </div>
 
           <button
