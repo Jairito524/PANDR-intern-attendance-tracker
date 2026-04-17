@@ -14,28 +14,31 @@ A full-stack web application for tracking intern daily attendance. After login, 
 - **Manual Time-Out with Confirmation** — intern clicks "Record Time Out" on the dashboard, which opens a confirmation modal showing the current time and duration clocked in before recording
 - **No Auto Time-Out on Logout** — signing out does not automatically record time-out; interns must explicitly record it from the dashboard
 - **Admin Attendance Exclusion** — admin users are excluded from all attendance tracking; `POST /time-in` and `POST /time-out` return 403 for admins, and the `/timein` route redirects them to `/admin`
+- **Incomplete Record Handling** — if an intern forgets to clock out, the record remains with `time_out = null` and is shown as an amber **Incomplete** badge in the history table; the next day the intern can time-in normally
 
 ### Intern Dashboard
 
 - **Today's Status** — live clock, time-in/time-out timestamps, and a live duration counter
-- **OJT Progress Tracker** — visual progress indicator for OJT hours
-- **Scrollable Attendance History** — table with a fixed max height (`max-h-96`) and sticky header for easy browsing of past records
+- **OJT Progress Tracker** — visual progress indicator for OJT hours with an editable required-hours target (persisted per-user in localStorage)
+- **Scrollable Attendance History** — table with a fixed max height (`max-h-96`) and sticky header; records show three statuses: **Completed**, **Active** (today, no time-out yet), or **Incomplete** (past day with no time-out)
 
 ### Admin Dashboard
 
 - **Stats Cards** — total interns, present today (excludes admins), and average hours
-- **Date & Name Filters** — filter attendance records by date or intern name/email
-- **Scrollable Records Table** — fixed max height (`max-h-[500px]`) with sticky header
-- **XLSX Attendance Import** — bulk import attendance records via `.xlsx` files (SheetJS + multer)
+- **Date & Name Filters** — filter attendance records by date or intern name/email with 400 ms debounce on the name field
+- **Scrollable Records Table** — fixed max height (`max-h-[500px]`) with sticky header; same three-state status badges as the intern view
+- **XLSX Attendance Import** — bulk import attendance records via `.xlsx` files (SheetJS + multer); tolerates Google Forms date/time string formats with PHT timezone handling
 - **XLSX Attendance Export** — export the currently filtered attendance records as a `.xlsx` file; filename reflects the active filter (`attendance_Allan.xlsx`, `attendance_2026-04-15.xlsx`, or `attendance_all.xlsx`)
 - **User Management** — add, edit, and delete intern/admin accounts
   - Custom role dropdown (replaces native `<select>`)
   - Optional password change in the Edit User modal (min 8 chars, confirmation field, show/hide toggles)
   - Enable/disable accounts via `is_active` toggle
 
-### Security
+### Security & Authentication
 
 - **Supabase Auth** — email/password login, no public sign-up
+- **Remember Me** — checkbox on the login page; when checked the session persists across browser restarts (localStorage); when unchecked the session is cleared on browser close (sessionStorage). Preference is saved and pre-filled on subsequent visits
+- **Forced Password Change on First Login** — when an admin creates a new intern account, `must_change_password` is set to `true`. On first login the intern sees an undismissable modal requiring them to set a new password before continuing. After a successful change the intern is signed out and must log in again with their new password
 - **Role-Based Access** — separate views for `intern` and `admin` roles, secured by RLS policies
 - **IP Restriction** — API access restricted to whitelisted office IPs via `ALLOWED_OFFICE_IP` env var; localhost always allowed for development
 - **Disabled Account Handling** — accounts with `is_active = false` are blocked at the auth middleware level (403 `ACCOUNT_DISABLED`); on the frontend, disabled users are signed out immediately and shown an error banner on the login page
@@ -56,7 +59,7 @@ intern-attendance-tracker/
 │   └── ...
 ├── server/              # Express backend
 │   ├── lib/             # Supabase admin client
-│   ├── middleware/       # JWT auth, IP restriction
+│   ├── middleware/      # JWT auth, IP restriction
 │   ├── routes/          # attendance.js, admin.js
 │   └── index.js         # Express entry point
 ├── supabase/
@@ -93,10 +96,14 @@ npm install
 1. Create a new project at [supabase.com](https://supabase.com)
 2. Go to **SQL Editor** → **New Query**
 3. Paste the contents of `supabase/migration.sql` and run it
-4. Add the `is_active` column to the `users` table (not in the base migration):
+4. Add the extra columns not included in the base migration:
 
 ```sql
+-- Allows admins to disable intern accounts
 ALTER TABLE public.users ADD COLUMN IF NOT EXISTS is_active BOOLEAN NOT NULL DEFAULT true;
+
+-- Forces a password change on the intern's first login
+ALTER TABLE public.users ADD COLUMN IF NOT EXISTS must_change_password BOOLEAN NOT NULL DEFAULT false;
 ```
 
 5. Go to **Authentication** → **Users** and create test accounts (one intern, one admin)
@@ -137,8 +144,7 @@ Open **two terminals**:
 ```bash
 # Terminal 1 — Backend
 cd server
-## Run with network access (accessible to other devices on network)
-npm run dev -- --host 0.0.0.0
+npm run dev
 # → Server bound to 0.0.0.0:3001
 
 # Terminal 2 — Frontend
@@ -151,6 +157,7 @@ npm run dev -- --host 0.0.0.0
 
 1. Open `http://localhost:5173` in your browser
 2. Sign in with an intern account → you'll land on the **Time-In** page
+   - On first login (new account), a **Change Password** modal appears — set a new password to continue, then log in again
 3. Click **Record Time-In** → you'll be redirected to the intern dashboard
 4. Click **Record Time Out** → confirm in the modal → time-out is recorded
 5. Sign in with an admin account → see stats, filter attendance logs, manage users
@@ -162,7 +169,7 @@ npm run dev -- --host 0.0.0.0
 | Route | Access | Description |
 |-------|--------|-------------|
 | `/login` | Public | Login page; redirects to `/timein` (intern) or `/admin` (admin) if authenticated |
-| `/timein` | Intern only | Time-In landing page; skips to `/dashboard` if already clocked in today |
+| `/timein` | Intern only | Time-In landing page; shows forced password modal if `must_change_password = true`; skips to `/dashboard` if already clocked in today |
 | `/dashboard` | Intern only | Intern dashboard with today's status, history, and OJT progress |
 | `/admin` | Admin only | Admin dashboard with stats, filters, attendance log, and user management |
 
@@ -175,14 +182,15 @@ npm run dev -- --host 0.0.0.0
 | `GET` | `/api/health` | — | Health check |
 | `POST` | `/api/attendance/time-in` | Bearer | Record today's time-in (idempotent; 403 for admins) |
 | `POST` | `/api/attendance/time-out` | Bearer | Record today's time-out (403 for admins) |
-| `GET` | `/api/attendance/today` | Bearer | Get today's attendance record |
+| `GET` | `/api/attendance/today` | Bearer | Get today's attendance record (date-scoped to current day) |
 | `GET` | `/api/attendance/history` | Bearer | Get all past records |
+| `PATCH` | `/api/attendance/change-password` | Bearer | Change own password and clear `must_change_password` flag |
 | `GET` | `/api/admin/attendance` | Bearer (admin) | All records; `?date=` `?name=` filters |
 | `GET` | `/api/admin/stats` | Bearer (admin) | Stats (total interns, present today, avg hours) |
 | `GET` | `/api/admin/users` | Bearer (admin) | Get all users |
-| `POST` | `/api/admin/users` | Bearer (admin) | Create a new user (auth + profile) |
-| `PATCH` | `/api/admin/users/:id`| Bearer (admin) | Update user profile and/or password |
-| `DELETE` | `/api/admin/users/:id`| Bearer (admin) | Delete a user (auth + profile) |
+| `POST` | `/api/admin/users` | Bearer (admin) | Create a new user (auth + profile; sets `must_change_password = true`) |
+| `PATCH` | `/api/admin/users/:id` | Bearer (admin) | Update user profile and/or password |
+| `DELETE` | `/api/admin/users/:id` | Bearer (admin) | Delete a user (auth + profile) |
 | `POST` | `/api/admin/import` | Bearer (admin) | Bulk XLSX attendance import (multer + SheetJS) |
 | `GET` | `/api/admin/export` | Bearer (admin) | Export filtered records as `.xlsx`; accepts `?date=` `?name=` |
 
@@ -196,18 +204,20 @@ All `/api` routes (except `/api/health`) are protected by IP restriction middlew
 - **Admin Stat Fix** — `presentToday` calculation updated to only count `intern` role users, excluding admins
 - **Disabled Account Enforcement** — auth middleware checks `is_active` and blocks disabled accounts with a structured `ACCOUNT_DISABLED` error code
 - **Admin Attendance Guard** — both `POST /time-in` and `POST /time-out` reject admin users with 403
+- **XLSX Timezone Fix** — import route uses `raw: false` SheetJS option to read date/time cells as plain strings, avoiding UTC conversion bugs for PHT timestamps
+- **Session Token Refresh After Password Change** — after the forced password change flow, the app signs the user out immediately (Supabase invalidates the token on password update) and redirects to login with a success message, preventing 401 errors
 
 ---
 
 ## Database Schema
 
-**`users`** — `id`, `name`, `email`, `role`, `department`, `is_active`, `created_at`, `updated_at`
+**`users`** — `id`, `name`, `email`, `role`, `department`, `is_active`, `must_change_password`, `created_at`, `updated_at`
 
 **`attendance`** — `id`, `user_id`, `date`, `time_in`, `time_out`, `duration_minutes`, `created_at`, `updated_at`
 
 Unique constraint: one attendance record per `(user_id, date)`.
 
-> **Note:** The `is_active` column is not in the base migration. Run the `ALTER TABLE` command from the setup instructions to add it.
+> **Note:** `is_active` and `must_change_password` are not in the base migration. Run the `ALTER TABLE` commands from the setup instructions to add them.
 
 ---
 
@@ -220,51 +230,6 @@ Unique constraint: one attendance record per `(user_id, date)`.
 5. **Skip if already clocked in** = if the intern has already clocked in today, the `/timein` page redirects directly to `/dashboard`
 6. **Admins excluded** = admin users cannot record time-in or time-out; the system returns 403 and all frontend routes redirect admins to `/admin`
 7. **Disabled accounts** = users with `is_active = false` are signed out on login and blocked from all API access
-
----
-
-## Supabase Cron Job
-
-The system uses a scheduled PostgreSQL function to automatically record time-out
-for interns who forgot to clock out at the end of the day.
-
-  ### Setup
-
-  1. Go to **Supabase Dashboard** → **SQL Editor**
-  2. Paste and run the following:
-
-  ```sql
-      -- Enable pg_cron extension
-      create extension if not exists pg_cron;
-
-      -- Create the auto time-out function
-      create or replace function public.auto_timeout_missing_records()
-      returns void as $$
-      declare
-        end_of_day timestamptz;
-      begin
-        end_of_day := (current_date + time '10:00:00') at time zone 'UTC';
-
-        update public.attendance
-        set
-          time_out = end_of_day,
-          duration_minutes = round(extract(epoch from (end_of_day - time_in)) / 60)
-        where
-          date = current_date
-          and time_out is null;
-      end;
-      $$ language plpgsql security definer;
-
-      -- Schedule it to run every day at 6:00 PM Philippine Time (UTC+8)
-      select cron.schedule(
-        'auto-timeout-missing-records',
-        '0 10 * * *',
-        'select public.auto_timeout_missing_records();'
-      );
-  ```
-
-  ### Behavior
-
-  - Runs every day at **6:00 PM PHT**
-  - Only affects records from the **current day** with no time-out
-  - Records that already have a time-out are untouched
+8. **Incomplete records** = if an intern forgets to clock out, the record remains with `time_out = null` and is shown as an amber "Incomplete" badge in the history table. The following day a new record is created normally — incomplete records never block time-in
+9. **Forced password change** = accounts created by an admin have `must_change_password = true`; the intern must set a new password via the modal before they can use the system. After a successful change they are signed out and must log in again with the new password
+10. **Remember Me** = when checked at login the session persists in `localStorage` across browser restarts; when unchecked the session is stored in `sessionStorage` and is cleared when the browser closes. A startup guard in `App.jsx` enforces the unchecked case on page load
