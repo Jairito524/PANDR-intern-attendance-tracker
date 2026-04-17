@@ -232,7 +232,7 @@ router.post("/users", async (req, res) => {
     // Insert into public.users
     const { data: profile, error: profileError } = await supabase
       .from("users")
-      .insert({ id: userId, name, email, role, department, is_active: true })
+      .insert({ id: userId, name, email, role, department, is_active: true, must_change_password: true })
       .select()
       .single();
 

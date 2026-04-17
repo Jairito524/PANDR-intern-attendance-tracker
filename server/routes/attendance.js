@@ -140,4 +140,40 @@ router.get("/history", async (req, res) => {
   }
 });
 
+// ─── PATCH /api/attendance/change-password ───────────────
+// Allows an intern to set their own password on first login.
+// Clears the must_change_password flag after a successful update.
+router.patch("/change-password", async (req, res) => {
+  try {
+    const { newPassword } = req.body;
+
+    if (!newPassword || typeof newPassword !== "string") {
+      return res.status(400).json({ error: "newPassword is required" });
+    }
+    if (newPassword.length < 8) {
+      return res.status(400).json({ error: "Password must be at least 8 characters" });
+    }
+
+    const userId = req.user.id;
+
+    // Update the password via Supabase Auth admin API
+    const { error: authError } = await supabase.auth.admin.updateUserById(userId, {
+      password: newPassword,
+    });
+    if (authError) throw authError;
+
+    // Clear the forced-change flag
+    const { error: profileError } = await supabase
+      .from("users")
+      .update({ must_change_password: false })
+      .eq("id", userId);
+    if (profileError) throw profileError;
+
+    res.json({ success: true });
+  } catch (err) {
+    console.error("Change password error:", err);
+    res.status(500).json({ error: err.message || "Failed to change password" });
+  }
+});
+
 export default router;

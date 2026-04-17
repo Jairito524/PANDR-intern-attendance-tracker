@@ -1,7 +1,9 @@
 import { useState, useEffect } from "react";
+import { useLocation } from "react-router-dom";
 import { supabase } from "../lib/supabaseClient";
 
 export default function Login({ onLogin, disabledMessage = "" }) {
+  const location = useLocation();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -12,6 +14,17 @@ export default function Login({ onLogin, disabledMessage = "" }) {
   const [rememberMe, setRememberMe] = useState(
     () => localStorage.getItem("rememberMe") !== "false"
   );
+  // Success message passed via router state (e.g. after forced password change)
+  const [successMessage, setSuccessMessage] = useState(
+    () => location.state?.message || ""
+  );
+
+  // Clear the router state so the message doesn't persist on manual refresh
+  useEffect(() => {
+    if (location.state?.message) {
+      window.history.replaceState({}, "");
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Sync prop changes (e.g. when App sets disabledMessage after sign-out)
   useEffect(() => {
@@ -65,6 +78,30 @@ export default function Login({ onLogin, disabledMessage = "" }) {
           <h1 className="text-4xl font-black tracking-tight gradient-text">PANDR</h1>
           <p className="text-surface-200/60 mt-1 text-sm font-medium">Intern Attendance Tracker</p>
         </div>
+
+        {/* Success Banner (e.g. after forced password change) */}
+        {successMessage && (
+          <div
+            id="success-message-banner"
+            className="mb-6 rounded-2xl overflow-hidden animate-slide-up"
+          >
+            <div className="bg-gradient-to-r from-emerald-500/20 via-emerald-400/10 to-emerald-500/20 border border-emerald-500/30 rounded-2xl p-5">
+              <div className="flex items-start gap-3">
+                <div className="w-10 h-10 rounded-xl bg-emerald-500/20 flex items-center justify-center shrink-0 mt-0.5">
+                  <svg className="w-5 h-5 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </div>
+                <div>
+                  <p className="text-emerald-300 font-semibold text-sm">✓ Success</p>
+                  <p className="text-emerald-400/80 text-sm mt-1 leading-relaxed">
+                    {successMessage}
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Access Denied Banner */}
         {accessDenied && (

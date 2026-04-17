@@ -51,6 +51,12 @@ export const recordTimeIn = () => authFetch("/api/attendance/time-in", { method:
 export const recordTimeOut = () => authFetch("/api/attendance/time-out", { method: "POST" });
 export const getTodayAttendance = () => authFetch("/api/attendance/today");
 export const getAttendanceHistory = () => authFetch("/api/attendance/history");
+export const changePassword = (newPassword) =>
+  authFetch("/api/attendance/change-password", {
+    method: "PATCH",
+    body: JSON.stringify({ newPassword }),
+  });
+
 
 // ─── Admin API ──────────────────────────────────────────
 export const getAdminAttendance = (params = {}) => {
