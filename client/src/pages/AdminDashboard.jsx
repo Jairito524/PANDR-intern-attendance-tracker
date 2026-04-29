@@ -231,7 +231,7 @@ function AddUserModal({ onClose, onSuccess }) {
     setServerError("");
     try {
       await createAdminUser(form);
-      onSuccess("Intern account created successfully!");
+      onSuccess(`Account created! A welcome email with login credentials has been sent to ${form.email}.`);
     } catch (err) {
       setServerError(err.message || "Failed to create user");
     } finally {

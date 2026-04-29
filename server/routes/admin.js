@@ -3,6 +3,7 @@ import { adminOnly } from "../middleware/auth.js";
 import supabase from "../lib/supabase.js";
 import multer from "multer";
 import * as XLSX from "xlsx";
+import { sendWelcomeEmail } from "../lib/mailer.js";
 
 const router = Router();
 
@@ -240,6 +241,13 @@ router.post("/users", async (req, res) => {
       // Rollback: remove the auth user if profile insert fails
       await supabase.auth.admin.deleteUser(userId);
       throw profileError;
+    }
+
+    // Send welcome email — non-blocking, failure does NOT roll back the account
+    try {
+      await sendWelcomeEmail({ name, email, password });
+    } catch (emailErr) {
+      console.warn('Welcome email failed to send:', emailErr.message);
     }
 
     res.status(201).json({ user: profile });
