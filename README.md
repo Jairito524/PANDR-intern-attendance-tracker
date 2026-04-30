@@ -33,6 +33,7 @@ A full-stack web application for tracking intern daily attendance. After login, 
   - Custom role dropdown (replaces native `<select>`)
   - Optional password change in the Edit User modal (min 8 chars, confirmation field, show/hide toggles)
   - Enable/disable accounts via `is_active` toggle
+- **Welcome Email on Account Creation** — when a new intern account is created, an automated welcome email is sent via Resend containing the intern's login credentials and a link to the app
 
 ### Security & Authentication
 
@@ -50,21 +51,38 @@ A full-stack web application for tracking intern daily attendance. After login, 
 
 ```
 intern-attendance-tracker/
-├── client/              # React + Vite + Tailwind frontend
+├── client/              # React + Vite + Tailwind CSS frontend
 │   ├── src/
-│   │   ├── lib/         # Supabase client & API helpers
-│   │   ├── pages/       # Login, TimeInPage, InternDashboard, AdminDashboard
-│   │   ├── App.jsx      # Routing & auth state
-│   │   └── main.jsx     # Entry point
-│   └── ...
-├── server/              # Express backend
-│   ├── lib/             # Supabase admin client
-│   ├── middleware/      # JWT auth, IP restriction
-│   ├── routes/          # attendance.js, admin.js
-│   └── index.js         # Express entry point
+│   │   ├── lib/
+│   │   │   ├── api.js           # Authenticated fetch helpers for all API calls
+│   │   │   └── supabaseClient.js # Supabase browser client (storage-aware)
+│   │   ├── pages/
+│   │   │   ├── Login.jsx        # Login page with Remember Me, Access Denied & Account Disabled banners
+│   │   │   ├── TimeInPage.jsx   # Time-In landing page with forced password-change modal
+│   │   │   ├── InternDashboard.jsx # Intern view with OJT tracker & time-out confirmation
+│   │   │   └── AdminDashboard.jsx  # Admin view with stats, import/export, user management
+│   │   ├── App.jsx      # Routing, auth state, TimeInGuard
+│   │   ├── main.jsx     # Entry point
+│   │   └── index.css    # Global styles, glassmorphism, scrollbar, animations
+│   ├── tailwind.config.js
+│   ├── vite.config.js   # allowedHosts: true, /api proxy → localhost:3001
+│   └── package.json
+├── server/              # Express backend (ESM)
+│   ├── lib/
+│   │   ├── supabase.js  # Supabase admin client (service-role key, bypasses RLS)
+│   │   └── mailer.js    # Resend welcome-email sender
+│   ├── middleware/
+│   │   ├── auth.js      # JWT verification, profile fetch, is_active guard, adminOnly()
+│   │   └── ipRestriction.js # Office IP whitelist middleware
+│   ├── routes/
+│   │   ├── attendance.js  # time-in, time-out, today, history, change-password
+│   │   └── admin.js       # attendance, stats, users CRUD, import, export
+│   ├── index.js         # Express entry point, bound to 0.0.0.0:3001
+│   └── package.json
 ├── supabase/
-│   └── migration.sql    # Database schema
+│   └── migration.sql    # Database schema (users, attendance, RLS, triggers)
 ├── .env.example
+├── .gitignore
 └── README.md
 ```
 
@@ -74,6 +92,7 @@ intern-attendance-tracker/
 
 - **Node.js** v18+ and **npm**
 - A **Supabase** project (free tier works)
+- A **Resend** account (free tier) for welcome emails
 
 ---
 
@@ -118,7 +137,19 @@ VALUES
 
 7. Copy your project URL, anon key, and service role key from **Settings** → **API**
 
-### 3. Environment Variables
+### 3. Email Setup (Resend)
+
+The app sends a welcome email to every newly created intern account containing their login credentials.
+
+1. Go to [resend.com](https://resend.com) and create a free account
+2. Go to **API Keys** → **Create API Key** and copy the key
+3. Set `RESEND_API_KEY` in your `.env` file (see below)
+
+> **Free-tier note:** With `RESEND_FROM_EMAIL=onboarding@resend.dev` (Resend's shared test address), emails can only be delivered to your **own verified email address**. To send to any intern's inbox, verify a custom domain under **Resend → Domains**.
+
+If the email send fails for any reason (network error, invalid key, unverified recipient), the account is still created and the error is logged as a warning — the failure is non-blocking.
+
+### 4. Environment Variables
 
 Copy `.env.example` to `.env` in the project root and fill in your credentials:
 
@@ -127,17 +158,32 @@ cp .env.example .env
 ```
 
 ```env
+# ── Supabase ──────────────────────────────────────────────
 SUPABASE_URL=https://your-project.supabase.co
 SUPABASE_ANON_KEY=your-anon-key
 SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
+
+# ── Frontend (Vite uses VITE_ prefix) ────────────────────
 VITE_SUPABASE_URL=https://your-project.supabase.co
 VITE_SUPABASE_ANON_KEY=your-anon-key
-VITE_API_URL=http://localhost:3001
+VITE_API_URL=
+
+# ── Email (Resend) ────────────────────────────────────────
+RESEND_API_KEY=re_your_api_key_here
+RESEND_FROM_EMAIL=onboarding@resend.dev
+APP_URL=http://localhost:5173
+
+# ── Server ────────────────────────────────────────────────
 PORT=3001
-ALLOWED_OFFICE_IP=your-office-ip
+
+# ── IP Restriction (comma-separated list of allowed IPs) ──
+# Leave empty to allow all IPs (development mode)
+ALLOWED_OFFICE_IP=
 ```
 
-### 4. Run the App
+> **`VITE_API_URL`** — leave empty so the Vite dev-server proxy (`/api → localhost:3001`) handles all API calls. Set to `http://localhost:3001` only if you run the frontend without the Vite proxy.
+
+### 5. Run the App
 
 Open **two terminals**:
 
@@ -145,15 +191,15 @@ Open **two terminals**:
 # Terminal 1 — Backend
 cd server
 npm run dev
-# → Server bound to 0.0.0.0:3001
+# → Server running on http://0.0.0.0:3001
 
 # Terminal 2 — Frontend
 cd client
-npm run dev -- --host 0.0.0.0
-# → App running on http://localhost:5173 (and your local IP)
+npm run dev
+# → App running on http://localhost:5173
 ```
 
-### 5. Use the App
+### 6. Use the App
 
 1. Open `http://localhost:5173` in your browser
 2. Sign in with an intern account → you'll land on the **Time-In** page
@@ -164,12 +210,34 @@ npm run dev -- --host 0.0.0.0
 
 ---
 
+## Tunnel Access (Cloudflare / ngrok)
+
+To share the app over the internet via a tunnel:
+
+```bash
+# Install cloudflared (Windows)
+# Download from: https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-windows-amd64.msi
+
+# Start the frontend tunnel (Vite proxy forwards /api calls to the local backend)
+cloudflared tunnel --url http://localhost:5173
+```
+
+The `vite.config.js` already sets `allowedHosts: true` (boolean), which tells Vite to accept requests from any hostname, including dynamically assigned tunnel URLs. Without this, Vite blocks the request with a "This host is not allowed" error.
+
+You only need **one tunnel** on port `5173`. The Vite dev-server proxy automatically forwards all `/api/*` requests to `localhost:3001` on the same machine, so the backend is never directly exposed.
+
+```
+Browser (via tunnel) → https://xyz.trycloudflare.com → Vite :5173 → /api proxy → Express :3001
+```
+
+---
+
 ## Client-Side Routes
 
 | Route | Access | Description |
 |-------|--------|-------------|
 | `/login` | Public | Login page; redirects to `/timein` (intern) or `/admin` (admin) if authenticated |
-| `/timein` | Intern only | Time-In landing page; shows forced password modal if `must_change_password = true`; skips to `/dashboard` if already clocked in today |
+| `/timein` | Intern only | Time-In landing page; shows forced password modal if `must_change_password = true`; redirects to `/dashboard` if already clocked in today |
 | `/dashboard` | Intern only | Intern dashboard with today's status, history, and OJT progress |
 | `/admin` | Admin only | Admin dashboard with stats, filters, attendance log, and user management |
 
@@ -182,15 +250,15 @@ npm run dev -- --host 0.0.0.0
 | `GET` | `/api/health` | — | Health check |
 | `POST` | `/api/attendance/time-in` | Bearer | Record today's time-in (idempotent; 403 for admins) |
 | `POST` | `/api/attendance/time-out` | Bearer | Record today's time-out (403 for admins) |
-| `GET` | `/api/attendance/today` | Bearer | Get today's attendance record (date-scoped to current day) |
-| `GET` | `/api/attendance/history` | Bearer | Get all past records |
+| `GET` | `/api/attendance/today` | Bearer | Get today's attendance record |
+| `GET` | `/api/attendance/history` | Bearer | Get all past records for the authenticated intern |
 | `PATCH` | `/api/attendance/change-password` | Bearer | Change own password and clear `must_change_password` flag |
 | `GET` | `/api/admin/attendance` | Bearer (admin) | All records; `?date=` `?name=` filters |
 | `GET` | `/api/admin/stats` | Bearer (admin) | Stats (total interns, present today, avg hours) |
 | `GET` | `/api/admin/users` | Bearer (admin) | Get all users |
-| `POST` | `/api/admin/users` | Bearer (admin) | Create a new user (auth + profile; sets `must_change_password = true`) |
+| `POST` | `/api/admin/users` | Bearer (admin) | Create a new user (auth + profile; sets `must_change_password = true`; sends welcome email) |
 | `PATCH` | `/api/admin/users/:id` | Bearer (admin) | Update user profile and/or password |
-| `DELETE` | `/api/admin/users/:id` | Bearer (admin) | Delete a user (auth + profile) |
+| `DELETE` | `/api/admin/users/:id` | Bearer (admin) | Delete a user (auth + profile cascade) |
 | `POST` | `/api/admin/import` | Bearer (admin) | Bulk XLSX attendance import (multer + SheetJS) |
 | `GET` | `/api/admin/export` | Bearer (admin) | Export filtered records as `.xlsx`; accepts `?date=` `?name=` |
 
@@ -206,18 +274,19 @@ All `/api` routes (except `/api/health`) are protected by IP restriction middlew
 - **Admin Attendance Guard** — both `POST /time-in` and `POST /time-out` reject admin users with 403
 - **XLSX Timezone Fix** — import route uses `raw: false` SheetJS option to read date/time cells as plain strings, avoiding UTC conversion bugs for PHT timestamps
 - **Session Token Refresh After Password Change** — after the forced password change flow, the app signs the user out immediately (Supabase invalidates the token on password update) and redirects to login with a success message, preventing 401 errors
+- **Tunnel Host Allow** — `allowedHosts: true` in `vite.config.js` permits any external hostname (Cloudflare, ngrok) without needing to list specific URLs
 
 ---
 
 ## Database Schema
 
-**`users`** — `id`, `name`, `email`, `role`, `department`, `is_active`, `must_change_password`, `created_at`, `updated_at`
+**`users`** — `id` (UUID, FK → `auth.users`), `name`, `email`, `role` (`intern` | `admin`), `department`, `is_active` (bool, default `true`), `must_change_password` (bool, default `false`), `created_at`, `updated_at`
 
-**`attendance`** — `id`, `user_id`, `date`, `time_in`, `time_out`, `duration_minutes`, `created_at`, `updated_at`
+**`attendance`** — `id` (bigint identity), `user_id` (FK → `users`), `date` (DATE), `time_in` (TIMESTAMPTZ), `time_out` (TIMESTAMPTZ, nullable), `duration_minutes` (INTEGER, nullable), `created_at`, `updated_at`
 
 Unique constraint: one attendance record per `(user_id, date)`.
 
-> **Note:** `is_active` and `must_change_password` are not in the base migration. Run the `ALTER TABLE` commands from the setup instructions to add them.
+> **Note:** `is_active` and `must_change_password` are not in the base `migration.sql`. Run the `ALTER TABLE` commands from the setup instructions to add them.
 
 ---
 
@@ -232,4 +301,5 @@ Unique constraint: one attendance record per `(user_id, date)`.
 7. **Disabled accounts** = users with `is_active = false` are signed out on login and blocked from all API access
 8. **Incomplete records** = if an intern forgets to clock out, the record remains with `time_out = null` and is shown as an amber "Incomplete" badge in the history table. The following day a new record is created normally — incomplete records never block time-in
 9. **Forced password change** = accounts created by an admin have `must_change_password = true`; the intern must set a new password via the modal before they can use the system. After a successful change they are signed out and must log in again with the new password
-10. **Remember Me** = when checked at login the session persists in `localStorage` across browser restarts; when unchecked the session is stored in `sessionStorage` and is cleared when the browser closes. A startup guard in `App.jsx` enforces the unchecked case on page load
+10. **Welcome email** = when an admin creates a new intern account, a welcome email containing the intern's email address and temporary password is sent via Resend. If the email fails, the account creation is not rolled back
+11. **Remember Me** = when checked at login the session persists in `localStorage` across browser restarts; when unchecked the session is stored in `sessionStorage` and is cleared when the browser closes. A startup guard in `App.jsx` enforces the unchecked case on page load
