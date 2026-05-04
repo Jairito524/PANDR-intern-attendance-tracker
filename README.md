@@ -64,6 +64,8 @@ intern-attendance-tracker/
 │   │   ├── App.jsx      # Routing, auth state, TimeInGuard
 │   │   ├── main.jsx     # Entry point
 │   │   └── index.css    # Global styles, glassmorphism, scrollbar, animations
+│   ├── Dockerfile       # Docker image for the Vite frontend
+│   ├── .dockerignore
 │   ├── tailwind.config.js
 │   ├── vite.config.js   # allowedHosts: true, /api proxy → localhost:3001
 │   └── package.json
@@ -78,9 +80,12 @@ intern-attendance-tracker/
 │   │   ├── attendance.js  # time-in, time-out, today, history, change-password
 │   │   └── admin.js       # attendance, stats, users CRUD, import, export
 │   ├── index.js         # Express entry point, bound to 0.0.0.0:3001
+│   ├── Dockerfile       # Docker image for the Express backend
+│   ├── .dockerignore
 │   └── package.json
 ├── supabase/
 │   └── migration.sql    # Database schema (users, attendance, RLS, triggers)
+├── docker-compose.yml   # Orchestrates server + client containers
 ├── .env.example
 ├── .gitignore
 └── README.md
@@ -90,7 +95,8 @@ intern-attendance-tracker/
 
 ## Prerequisites
 
-- **Node.js** v18+ and **npm**
+- **Node.js** v18+ and **npm** *(not needed if using Docker)*
+- **Docker** and **Docker Compose** *(optional — alternative to running manually)*
 - A **Supabase** project (free tier works)
 - A **Resend** account (free tier) for welcome emails
 
@@ -207,6 +213,34 @@ npm run dev
 3. Click **Record Time-In** → you'll be redirected to the intern dashboard
 4. Click **Record Time Out** → confirm in the modal → time-out is recorded
 5. Sign in with an admin account → see stats, filter attendance logs, manage users
+
+---
+
+## Docker Setup
+
+Docker is an alternative to running the app manually. Supabase is **not** containerized — it remains an external cloud service.
+
+```bash
+# Build and start both containers (server + client)
+docker-compose up --build
+
+# Run in background
+docker-compose up --build -d
+
+# Stop and remove containers
+docker-compose down
+```
+
+Once running, the app is accessible at `http://localhost:5173` (frontend) and `http://localhost:3001` (backend API).
+
+**How it works:**
+- `docker-compose.yml` defines two services: `server` (port 3001) and `client` (port 5173).
+- Both services load environment variables from the root `.env` file via `env_file: - .env`.
+- Source directories are mounted as volumes so code changes are reflected without rebuilding.
+- An anonymous volume over `/app/node_modules` prevents the host's Windows `node_modules` from overwriting the Linux container's installed packages.
+- `client` depends on `server`, so Compose starts the backend first.
+
+> **`VITE_API_URL`** — keep this empty in `.env` when using Docker so the Vite proxy (`/api → localhost:3001`) handles all API calls within the same host. The proxy target `http://localhost:3001` in `vite.config.js` resolves correctly because both ports are bound on the host.
 
 ---
 

@@ -1,6 +1,6 @@
 # Codebase Summary — Intern Attendance Tracker
 
-> Generated: 2026-04-30. Reflects the current state of all source files.
+> Generated: 2026-05-04. Reflects the current state of all source files.
 
 ---
 
@@ -13,7 +13,10 @@ intern-attendance-tracker/
 ├── README.md
 ├── CODEBASE_SUMMARY.md
 ├── build_summary.js
+├── docker-compose.yml
 ├── client/
+│   ├── Dockerfile
+│   ├── .dockerignore
 │   ├── index.html
 │   ├── package.json
 │   ├── postcss.config.js
@@ -32,6 +35,8 @@ intern-attendance-tracker/
 │           ├── Login.jsx
 │           └── TimeInPage.jsx
 ├── server/
+│   ├── Dockerfile
+│   ├── .dockerignore
 │   ├── index.js
 │   ├── package.json
 │   ├── lib/
@@ -84,7 +89,100 @@ build/
 *.log
 ```
 
+### `docker-compose.yml`
+```yaml
+version: '3.8'
+
+services:
+  server:
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+    ports:
+      - "3001:3001"
+    env_file:
+      - .env
+    volumes:
+      - ./server:/app
+      - /app/node_modules
+    restart: unless-stopped
+
+  client:
+    build:
+      context: ./client
+      dockerfile: Dockerfile
+    ports:
+      - "5173:5173"
+    env_file:
+      - .env
+    volumes:
+      - ./client:/app
+      - /app/node_modules
+    depends_on:
+      - server
+    restart: unless-stopped
+```
+
+Two services: `server` (Express, port 3001) and `client` (Vite, port 5173). Both load the root `.env` via `env_file`. Source directories are bind-mounted so edits are reflected live. The anonymous `/app/node_modules` volume prevents the host `node_modules` (Windows) from shadowing the container's Linux-installed packages.
+
 ---
+
+## Docker Files
+
+### `server/Dockerfile`
+```dockerfile
+FROM node:18-alpine
+
+WORKDIR /app
+
+COPY package*.json ./
+RUN npm install
+
+COPY . .
+
+EXPOSE 3001
+
+CMD ["node", "index.js"]
+```
+
+Copies `package*.json` first to leverage Docker layer caching for `npm install`, then copies the rest of the source. Runs `node index.js` (not `--watch`) since live-reload is handled by the bind-mounted volume.
+
+### `server/.dockerignore`
+```
+node_modules
+.env
+dist
+.git
+```
+
+### `client/Dockerfile`
+```dockerfile
+FROM node:18-alpine
+
+WORKDIR /app
+
+COPY package*.json ./
+RUN npm install
+
+COPY . .
+
+EXPOSE 5173
+
+CMD ["npx", "vite", "--host"]
+```
+
+Runs `npx vite --host` so Vite binds to `0.0.0.0:5173` inside the container, making it reachable on the host's mapped port.
+
+### `client/.dockerignore`
+```
+node_modules
+.env
+dist
+.git
+```
+
+---
+
 
 ## Client
 
@@ -129,7 +227,7 @@ export default defineConfig({
   server: {
     host: true,
     port: 5173,
-    allowedHosts: true,       // accepts any hostname (Cloudflare, ngrok, etc.)
+    allowedHosts: true,       // boolean true — accepts any hostname (Cloudflare, ngrok, etc.)
     proxy: {
       "/api": {
         target: "http://localhost:3001",
