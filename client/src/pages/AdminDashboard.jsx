@@ -9,32 +9,8 @@ import {
   importAttendance,
   exportAttendance,
 } from "../lib/api";
+import { formatTimeShort as formatTime, formatDuration, formatShortDate as formatDate } from "../utils/formatters";
 
-// ─── Helpers ─────────────────────────────────────────────
-function formatTime(iso) {
-  if (!iso) return "—";
-  return new Date(iso).toLocaleTimeString("en-US", {
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: true,
-  });
-}
-
-function formatDuration(minutes) {
-  if (minutes == null) return "—";
-  const h = Math.floor(minutes / 60);
-  const m = minutes % 60;
-  return `${h}h ${m}m`;
-}
-
-function formatDate(iso) {
-  if (!iso) return "—";
-  return new Date(iso).toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  });
-}
 
 // ─── Spinner ─────────────────────────────────────────────
 function Spinner({ size = "w-4 h-4" }) {

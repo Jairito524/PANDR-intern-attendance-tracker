@@ -1,32 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { getTodayAttendance, getAttendanceHistory, recordTimeOut } from "../lib/api";
-
-function formatTime(iso) {
-  if (!iso) return "—";
-  return new Date(iso).toLocaleTimeString("en-US", {
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-    hour12: true,
-  });
-}
-
-function formatDate(dateStr) {
-  if (!dateStr) return "—";
-  return new Date(dateStr + "T00:00:00").toLocaleDateString("en-US", {
-    weekday: "short",
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-  });
-}
-
-function formatDuration(minutes) {
-  if (minutes == null) return "—";
-  const h = Math.floor(minutes / 60);
-  const m = minutes % 60;
-  return `${h}h ${m}m`;
-}
+import { formatTime, formatDate, formatDuration, formatFullDate, formatLiveTime } from "../utils/formatters";
 
 export default function InternDashboard({ user, onLogout }) {
   const [today, setToday] = useState(null);
@@ -83,19 +57,9 @@ export default function InternDashboard({ user, onLogout }) {
     }
   };
 
-  const todayDateStr = currentTime.toLocaleDateString("en-US", {
-    weekday: "long",
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-  });
+  const todayDateStr = formatFullDate(currentTime);
 
-  const liveTimeStr = currentTime.toLocaleTimeString("en-US", {
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-    hour12: true,
-  });
+  const liveTimeStr = formatLiveTime(currentTime);
 
   // Compute live duration if clocked in but not clocked out
   let liveDuration = null;
