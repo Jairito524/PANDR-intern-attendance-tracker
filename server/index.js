@@ -8,6 +8,7 @@ import ipRestriction from "./middleware/ipRestriction.js";
 import authMiddleware from "./middleware/auth.js";
 import attendanceRoutes from "./routes/attendance.js";
 import adminRoutes from "./routes/admin.js";
+import { logger } from "./lib/logger.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -38,11 +39,11 @@ app.use("/api/admin", authMiddleware, adminRoutes);
 
 // ─── Start ──────────────────────────────────────────────
 app.listen(PORT, "0.0.0.0", () => {
-  console.log(`✓ Server running on http://localhost:${PORT}`);
+  logger.info(`Server running on http://localhost:${PORT}`);
   const officeIps = process.env.ALLOWED_OFFICE_IP;
   if (officeIps) {
-    console.log(`✓ IP restriction active — allowed: ${officeIps}, localhost`);
+    logger.info(`IP restriction active — allowed: ${officeIps}, localhost`);
   } else {
-    console.log(`⚠ ALLOWED_OFFICE_IP not set — all IPs allowed`);
+    logger.warn("ALLOWED_OFFICE_IP not set — all IPs allowed");
   }
 });

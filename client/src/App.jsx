@@ -54,14 +54,11 @@ export default function App() {
 
   const fetchProfile = async (userId) => {
     try {
-      console.log("🔍 Fetching profile for userId:", userId);
       const { data, error } = await supabase
         .from("users")
         .select("*")
         .eq("id", userId)
         .single();
-
-      console.log("📋 Profile query result:", { data, error });
 
       if (error) {
         console.warn("Profile fetch error:", error.message);
@@ -84,7 +81,6 @@ export default function App() {
         navigate("/login");
         return;
       } else {
-        console.log("✅ Profile loaded, role:", data.role);
         setUserProfile(data);
       }
     } catch (err) {
