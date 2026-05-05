@@ -7,6 +7,8 @@
 import { Router } from "express";
 import supabase from "../../lib/supabase.js";
 import { sendWelcomeEmail } from "../../lib/mailer.js";
+import { validate } from "../../lib/validate.js";
+import { createUserSchema, updateUserSchema } from "../../lib/schemas.js";
 
 const router = Router();
 
@@ -27,16 +29,9 @@ router.get("/users", async (req, res) => {
 });
 
 // ─── POST /api/admin/users ──────────────────────────────
-router.post("/users", async (req, res) => {
+router.post("/users", validate(createUserSchema), async (req, res) => {
   try {
     const { name, email, password, role = "intern", department } = req.body;
-
-    if (!name || !email || !password || !department) {
-      return res.status(400).json({ error: "Name, email, password, and department are required" });
-    }
-    if (password.length < 8) {
-      return res.status(400).json({ error: "Password must be at least 8 characters" });
-    }
 
     // Create user in Supabase Auth
     const { data: authData, error: authError } = await supabase.auth.admin.createUser({
@@ -86,16 +81,13 @@ router.post("/users", async (req, res) => {
 });
 
 // ─── PATCH /api/admin/users/:id ─────────────────────────
-router.patch("/users/:id", async (req, res) => {
+router.patch("/users/:id", validate(updateUserSchema), async (req, res) => {
   try {
     const { id } = req.params;
     const { name, department, role, is_active, password } = req.body;
 
     // ── Handle optional password update via Supabase Auth ──
     if (password && typeof password === "string" && password.trim().length > 0) {
-      if (password.length < 8) {
-        return res.status(400).json({ error: "Password must be at least 8 characters" });
-      }
       const { error: authError } = await supabase.auth.admin.updateUserById(id, { password });
       if (authError) {
         console.error("Password update error:", authError);

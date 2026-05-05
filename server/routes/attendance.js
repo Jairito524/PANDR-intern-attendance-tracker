@@ -1,5 +1,7 @@
 import { Router } from "express";
 import supabase from "../lib/supabase.js";
+import { validate } from "../lib/validate.js";
+import { changePasswordSchema } from "../lib/schemas.js";
 
 const router = Router();
 
@@ -143,16 +145,9 @@ router.get("/history", async (req, res) => {
 // ─── PATCH /api/attendance/change-password ───────────────
 // Allows an intern to set their own password on first login.
 // Clears the must_change_password flag after a successful update.
-router.patch("/change-password", async (req, res) => {
+router.patch("/change-password", validate(changePasswordSchema), async (req, res) => {
   try {
     const { newPassword } = req.body;
-
-    if (!newPassword || typeof newPassword !== "string") {
-      return res.status(400).json({ error: "newPassword is required" });
-    }
-    if (newPassword.length < 8) {
-      return res.status(400).json({ error: "Password must be at least 8 characters" });
-    }
 
     const userId = req.user.id;
 
