@@ -10,6 +10,8 @@ import {
   exportAttendance,
 } from "../lib/api";
 import { formatTimeShort as formatTime, formatDuration, formatShortDate as formatDate } from "../utils/formatters";
+import Modal from "../components/Modal";
+import StatusBadge from "../components/StatusBadge";
 
 
 // ─── Spinner ─────────────────────────────────────────────
@@ -50,41 +52,6 @@ function Toast({ toasts }) {
   );
 }
 
-// ─── Modal Shell ─────────────────────────────────────────
-function Modal({ title, onClose, children }) {
-  useEffect(() => {
-    const handler = (e) => { if (e.key === "Escape") onClose(); };
-    document.addEventListener("keydown", handler);
-    return () => document.removeEventListener("keydown", handler);
-  }, [onClose]);
-
-  return (
-    <div
-      className="fixed inset-0 z-40 flex items-center justify-center p-4"
-      style={{ background: "rgba(0,0,0,0.6)", backdropFilter: "blur(4px)" }}
-      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
-    >
-      <div
-        className="w-full max-w-md rounded-2xl glass border border-white/10 shadow-2xl animate-slide-up"
-        style={{ maxHeight: "90vh", overflowY: "auto" }}
-      >
-        {/* Header */}
-        <div className="flex items-center justify-between p-5 border-b border-white/5">
-          <h3 className="text-lg font-semibold text-white">{title}</h3>
-          <button
-            onClick={onClose}
-            className="w-8 h-8 rounded-lg flex items-center justify-center text-surface-200/50 hover:text-white hover:bg-white/5 transition-all"
-          >
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
-        </div>
-        <div className="p-5">{children}</div>
-      </div>
-    </div>
-  );
-}
 
 // ─── Form Field ──────────────────────────────────────────
 function Field({ label, id, error, children }) {
@@ -216,7 +183,7 @@ function AddUserModal({ onClose, onSuccess }) {
   };
 
   return (
-    <Modal title="Add New User" onClose={onClose}>
+    <Modal isOpen={true} onClose={onClose} title="Add New User">
       <form onSubmit={handleSubmit} className="flex flex-col gap-4">
         {serverError && (
           <div className="bg-red-500/10 border border-red-500/20 rounded-xl px-3 py-2.5 text-red-400 text-sm">
@@ -353,7 +320,7 @@ function EditUserModal({ user, onClose, onSuccess }) {
   };
 
   return (
-    <Modal title={`Edit — ${user.name}`} onClose={handleClose}>
+    <Modal isOpen={true} onClose={handleClose} title={`Edit — ${user.name}`}>
       <form onSubmit={handleSubmit} className="flex flex-col gap-4">
         {serverError && (
           <div className="bg-red-500/10 border border-red-500/20 rounded-xl px-3 py-2.5 text-red-400 text-sm">
@@ -444,7 +411,7 @@ function DeleteModal({ user, onClose, onSuccess }) {
   };
 
   return (
-    <Modal title="Delete Account" onClose={onClose}>
+    <Modal isOpen={true} onClose={onClose} title="Delete Account">
       <div className="flex flex-col gap-5">
         <div className="flex items-start gap-3 p-4 rounded-xl bg-red-500/10 border border-red-500/20">
           <svg className="w-5 h-5 text-red-400 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -519,7 +486,7 @@ function ImportModal({ onClose, onSuccess }) {
   };
 
   return (
-    <Modal title="Import Attendance" onClose={onClose}>
+    <Modal isOpen={true} onClose={onClose} title="Import Attendance">
       <div className="flex flex-col gap-5">
         {/* Drop zone */}
         {!result && (
@@ -1067,23 +1034,15 @@ export default function AdminDashboard({ user, onLogout }) {
                         <td className="px-5 py-3 text-surface-200/70 tabular-nums">{formatTime(record.time_out)}</td>
                         <td className="px-5 py-3 text-surface-200/70 tabular-nums">{formatDuration(record.duration_minutes)}</td>
                         <td className="px-5 py-3">
-                          {record.time_out ? (
-                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs bg-surface-200/5 text-surface-200/50">
-                              Completed
-                            </span>
-                          ) : record.date === new Date().toISOString().split("T")[0] ? (
-                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs bg-brand-500/10 text-brand-400">
-                              <span className="w-1.5 h-1.5 rounded-full bg-brand-400 pulse-dot" />
-                              Active
-                            </span>
-                          ) : (
-                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs bg-red-500/10 text-red-400">
-                              <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                              </svg>
-                              Incomplete
-                            </span>
-                          )}
+                          {(() => {
+                            const today = new Date().toISOString().split("T")[0];
+                            const status = record.time_out
+                              ? "completed"
+                              : record.date === today
+                              ? "active"
+                              : "incomplete";
+                            return <StatusBadge status={status} />;
+                          })()}
                         </td>
                       </tr>
                     ))
