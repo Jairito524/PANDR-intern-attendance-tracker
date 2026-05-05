@@ -7,7 +7,7 @@ import { dirname, resolve } from "path";
 import ipRestriction from "./middleware/ipRestriction.js";
 import authMiddleware from "./middleware/auth.js";
 import attendanceRoutes from "./routes/attendance.js";
-import adminRoutes from "./routes/admin.js";
+import adminRoutes from "./routes/admin/index.js";
 import { logger } from "./lib/logger.js";
 
 const __filename = fileURLToPath(import.meta.url);
