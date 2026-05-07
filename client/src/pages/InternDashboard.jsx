@@ -143,7 +143,7 @@ export default function InternDashboard({ user, onLogout }) {
           <button
             id="logout-button"
             onClick={onLogout}
-            className="px-4 py-2 rounded-xl glass glass-hover text-sm text-surface-200/80 hover:text-white transition-all duration-200"
+            className="px-4 py-2 min-h-[44px] rounded-xl glass glass-hover text-sm text-surface-200/80 hover:text-white transition-all duration-200"
           >
             Sign Out
           </button>
@@ -151,13 +151,13 @@ export default function InternDashboard({ user, onLogout }) {
       </header>
 
       {/* Date & Live Clock */}
-      <div className="glass rounded-2xl p-6 mb-6 animate-slide-up">
-        <div className="flex flex-wrap items-center justify-between gap-4">
+      <div className="glass rounded-2xl p-5 sm:p-6 mb-6 animate-slide-up">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <div>
             <p className="text-surface-200/50 text-xs uppercase tracking-wider font-medium">Today</p>
-            <p className="text-xl font-semibold text-white mt-1">{todayDateStr}</p>
+            <p className="text-lg sm:text-xl font-semibold text-white mt-1">{todayDateStr}</p>
           </div>
-          <div className="text-right">
+          <div className="sm:text-right">
             <p className="text-surface-200/50 text-xs uppercase tracking-wider font-medium">Current Time</p>
             <p className="text-2xl font-bold text-brand-400 mt-1 tabular-nums">{liveTimeStr}</p>
           </div>
@@ -183,7 +183,7 @@ export default function InternDashboard({ user, onLogout }) {
       )}
 
       {/* Today's Attendance Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-8">
         <StatCard
           animationDelay="0.1s"
           icon={
@@ -408,11 +408,11 @@ export default function InternDashboard({ user, onLogout }) {
           )}
 
           {/* Actions */}
-          <div className="flex gap-3">
+          <div className="flex flex-col-reverse sm:flex-row gap-3">
             <button
               type="button"
               onClick={() => { setShowTimeOutModal(false); setTimeOutError(""); }}
-              className="flex-1 py-2.5 rounded-xl text-sm text-surface-200/60 hover:text-white hover:bg-white/5 transition-all"
+              className="flex-1 py-3 rounded-xl text-sm text-surface-200/60 hover:text-white hover:bg-white/5 transition-all min-h-[44px]"
             >
               Cancel
             </button>
@@ -420,7 +420,7 @@ export default function InternDashboard({ user, onLogout }) {
               id="confirm-time-out-button"
               onClick={handleTimeOut}
               disabled={timeOutLoading}
-              className="flex-1 py-2.5 rounded-xl text-sm font-semibold bg-gradient-to-r from-brand-500 to-brand-400 text-white hover:opacity-90 transition-all flex items-center justify-center gap-2 disabled:opacity-60"
+              className="flex-1 py-3 rounded-xl text-sm font-semibold bg-gradient-to-r from-brand-500 to-brand-400 text-white hover:opacity-90 transition-all flex items-center justify-center gap-2 disabled:opacity-60 min-h-[44px]"
             >
               {timeOutLoading ? (
                 <>
@@ -444,7 +444,7 @@ export default function InternDashboard({ user, onLogout }) {
           <button
             id="record-time-out-button"
             onClick={() => { setTimeOutError(""); setShowTimeOutModal(true); }}
-            className="w-full sm:w-auto px-8 py-4 rounded-2xl bg-gradient-to-r from-brand-600 to-brand-500 text-white font-semibold hover:from-brand-500 hover:to-brand-400 focus:outline-none focus:ring-2 focus:ring-brand-500/50 transition-all duration-200 shadow-lg shadow-brand-600/20 hover:shadow-brand-500/40 text-lg"
+            className="w-full px-8 py-4 rounded-2xl bg-gradient-to-r from-brand-600 to-brand-500 text-white font-semibold hover:from-brand-500 hover:to-brand-400 focus:outline-none focus:ring-2 focus:ring-brand-500/50 transition-all duration-200 shadow-lg shadow-brand-600/20 hover:shadow-brand-500/40 text-lg"
           >
             <span className="flex items-center justify-center gap-2">
               <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -463,15 +463,15 @@ export default function InternDashboard({ user, onLogout }) {
           <p className="text-xs text-surface-200/50 mt-1">Your past attendance records</p>
         </div>
 
-        <div className="overflow-x-auto overflow-y-auto max-h-96">
-          <table className="w-full text-sm">
+        <div className="overflow-x-auto overflow-y-auto max-h-96" style={{ WebkitOverflowScrolling: "touch" }}>
+          <table className="w-full text-sm min-w-[480px]">
             <thead className="sticky top-0 z-10 bg-[#12141a]">
               <tr className="text-surface-200/50 text-xs uppercase tracking-wider border-b border-white/5">
-                <th className="text-left px-5 py-3 font-medium">Date</th>
-                <th className="text-left px-5 py-3 font-medium">Time In</th>
-                <th className="text-left px-5 py-3 font-medium">Time Out</th>
-                <th className="text-left px-5 py-3 font-medium">Duration</th>
-                <th className="text-left px-5 py-3 font-medium">Status</th>
+                <th className="text-left px-4 py-3 font-medium">Date</th>
+                <th className="text-left px-4 py-3 font-medium">Time In</th>
+                <th className="text-left px-4 py-3 font-medium">Time Out</th>
+                <th className="text-left px-4 py-3 font-medium hidden sm:table-cell">Duration</th>
+                <th className="text-left px-4 py-3 font-medium">Status</th>
               </tr>
             </thead>
             <tbody>
@@ -490,11 +490,11 @@ export default function InternDashboard({ user, onLogout }) {
               ) : (
                 history.map((record) => (
                   <tr key={record.id} className="border-b border-white/5 table-row-hover transition-colors duration-150">
-                    <td className="px-5 py-3 text-white font-medium">{formatDate(record.date)}</td>
-                    <td className="px-5 py-3 text-surface-200/70 tabular-nums">{formatTime(record.time_in)}</td>
-                    <td className="px-5 py-3 text-surface-200/70 tabular-nums">{formatTime(record.time_out)}</td>
-                    <td className="px-5 py-3 text-surface-200/70 tabular-nums">{formatDuration(record.duration_minutes)}</td>
-                    <td className="px-5 py-3">
+                    <td className="px-4 py-3 text-white font-medium whitespace-nowrap">{formatDate(record.date)}</td>
+                    <td className="px-4 py-3 text-surface-200/70 tabular-nums whitespace-nowrap">{formatTime(record.time_in)}</td>
+                    <td className="px-4 py-3 text-surface-200/70 tabular-nums whitespace-nowrap">{formatTime(record.time_out)}</td>
+                    <td className="px-4 py-3 text-surface-200/70 tabular-nums hidden sm:table-cell">{formatDuration(record.duration_minutes)}</td>
+                    <td className="px-4 py-3">
                       {(() => {
                         const today = new Date().toISOString().split("T")[0];
                         const status = record.time_out
