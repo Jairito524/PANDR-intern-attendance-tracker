@@ -8,6 +8,7 @@ import {
   deleteAdminUser,
   importAttendance,
   exportAttendance,
+  updateAttendanceRecord,
 } from "../lib/api";
 import { formatTimeShort as formatTime, formatDuration, formatShortDate as formatDate } from "../utils/formatters";
 import Modal from "../components/Modal";
@@ -586,7 +587,156 @@ function ImportModal({ onClose, onSuccess }) {
   );
 }
 
-// ─── Toggle Switch ────────────────────────────────────────
+// ─── Timezone helpers (UTC ↔ PHT) ──────────────────────────
+function toLocalTimeInput(isoString) {
+  if (!isoString) return "";
+  const date = new Date(isoString);
+  const pht = new Date(date.getTime() + 8 * 60 * 60 * 1000);
+  return pht.toISOString().substring(11, 16); // "HH:MM"
+}
+function toLocalDateInput(isoString) {
+  if (!isoString) return "";
+  const date = new Date(isoString);
+  const pht = new Date(date.getTime() + 8 * 60 * 60 * 1000);
+  return pht.toISOString().substring(0, 10); // "YYYY-MM-DD"
+}
+function toUTCISOString(date, time) {
+  if (!date || !time) return null;
+  const phtString = `${date}T${time}:00+08:00`;
+  return new Date(phtString).toISOString();
+}
+function calcDurationPreview(date, timeIn, timeOut) {
+  if (!date || !timeIn || !timeOut) return null;
+  const start = new Date(`${date}T${timeIn}:00+08:00`);
+  const end   = new Date(`${date}T${timeOut}:00+08:00`);
+  const mins  = Math.round((end - start) / 60000);
+  if (mins <= 0) return null;
+  const h = Math.floor(mins / 60);
+  const m = mins % 60;
+  return h > 0 ? (m > 0 ? `${h}h ${m}m` : `${h}h`) : `${m}m`;
+}
+
+// ─── Edit Attendance Modal ─────────────────────────────────
+function EditAttendanceModal({ record, onClose, onSuccess }) {
+  const initialDate    = toLocalDateInput(record.time_in) || record.date || "";
+  const initialTimeIn  = toLocalTimeInput(record.time_in);
+  const initialTimeOut = toLocalTimeInput(record.time_out);
+
+  const [date,    setDate]    = useState(initialDate);
+  const [timeIn,  setTimeIn]  = useState(initialTimeIn);
+  const [timeOut, setTimeOut] = useState(initialTimeOut);
+  const [submitting, setSubmitting] = useState(false);
+  const [serverError, setServerError] = useState("");
+  const [timeError,   setTimeError]   = useState("");
+
+  const durationPreview = calcDurationPreview(date, timeIn, timeOut);
+
+  const validateTimes = () => {
+    if (timeIn && timeOut) {
+      const start = new Date(`${date}T${timeIn}:00+08:00`);
+      const end   = new Date(`${date}T${timeOut}:00+08:00`);
+      if (end <= start) { setTimeError("Time-out must be after time-in"); return false; }
+    }
+    setTimeError("");
+    return true;
+  };
+
+  const handleSave = async () => {
+    if (!validateTimes()) return;
+    setSubmitting(true);
+    setServerError("");
+    try {
+      const updates = {};
+      if (date !== initialDate) updates.date = date;
+
+      const newTimeInISO  = toUTCISOString(date, timeIn);
+      const initTimeInISO = record.time_in ? new Date(record.time_in).toISOString() : null;
+      if (newTimeInISO !== initTimeInISO) updates.time_in = newTimeInISO;
+
+      if (timeOut === "") {
+        updates.time_out = null;
+      } else {
+        const newTimeOutISO  = toUTCISOString(date, timeOut);
+        const initTimeOutISO = record.time_out ? new Date(record.time_out).toISOString() : null;
+        if (newTimeOutISO !== initTimeOutISO) updates.time_out = newTimeOutISO;
+      }
+
+      if (Object.keys(updates).length === 0) { onClose(); return; }
+
+      await updateAttendanceRecord(record.id, updates);
+      onSuccess("Attendance record updated successfully!");
+    } catch (err) {
+      setServerError(err.message || "Failed to update record");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <Modal isOpen={true} onClose={onClose} title={`Edit Record — ${record.users?.name || "Unknown"}`}>
+      <div className="flex flex-col gap-5">
+        {serverError && (
+          <div className="bg-red-500/10 border border-red-500/20 rounded-xl px-3 py-2.5 text-red-400 text-sm">
+            {serverError}
+          </div>
+        )}
+        <div className="flex items-center gap-3 p-3 rounded-xl bg-white/3 border border-white/8">
+          <div className="w-8 h-8 rounded-full bg-brand-500/20 flex items-center justify-center shrink-0">
+            <span className="text-xs font-bold text-brand-300">
+              {record.users?.name?.charAt(0).toUpperCase() || "?"}
+            </span>
+          </div>
+          <div>
+            <p className="text-sm font-medium text-white">{record.users?.name || "Unknown"}</p>
+            <p className="text-xs text-surface-200/40">{record.users?.email}</p>
+          </div>
+        </div>
+        <Field label="Date" id="edit-att-date">
+          <input id="edit-att-date" type="date" value={date}
+            onChange={(e) => setDate(e.target.value)}
+            className={inputCls + " [color-scheme:dark]"} />
+        </Field>
+        <Field label="Time In (PHT)" id="edit-att-time-in">
+          <input id="edit-att-time-in" type="time" value={timeIn}
+            onChange={(e) => { setTimeIn(e.target.value); setTimeError(""); }}
+            className={inputCls + " [color-scheme:dark]"} />
+        </Field>
+        <Field label="Time Out (PHT)" id="edit-att-time-out" error={timeError}>
+          <div className="flex gap-2">
+            <input id="edit-att-time-out" type="time" value={timeOut}
+              onChange={(e) => { setTimeOut(e.target.value); setTimeError(""); }}
+              className={inputCls + " [color-scheme:dark]"} />
+            {timeOut && (
+              <button type="button" onClick={() => setTimeOut("")}
+                title="Clear time-out"
+                className="px-3 rounded-xl text-xs text-surface-200/50 hover:text-red-400 hover:bg-red-500/10 border border-white/8 hover:border-red-500/20 transition-all shrink-0">
+                Clear
+              </button>
+            )}
+          </div>
+        </Field>
+        <div className="flex items-center justify-between px-4 py-2.5 rounded-xl bg-white/3 border border-white/8">
+          <span className="text-xs text-surface-200/50 uppercase tracking-wider font-medium">Duration Preview</span>
+          <span className="text-sm font-semibold text-brand-300">
+            {durationPreview || <span className="text-surface-200/30 font-normal">—</span>}
+          </span>
+        </div>
+        <div className="flex gap-3 pt-1">
+          <button type="button" onClick={onClose}
+            className="flex-1 py-2.5 rounded-xl text-sm text-surface-200/60 hover:text-white hover:bg-white/5 transition-all">
+            Cancel
+          </button>
+          <button type="button" onClick={handleSave} disabled={submitting}
+            className="flex-1 py-2.5 rounded-xl text-sm font-semibold bg-gradient-to-r from-brand-500 to-brand-400 text-white hover:opacity-90 transition-all flex items-center justify-center gap-2 disabled:opacity-60">
+            {submitting ? <><Spinner /> Saving…</> : "Save Changes"}
+          </button>
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
+// ─── Toggle Switch ─────────────────────────────────────────────
 function ToggleSwitch({ checked, onChange, disabled, loading }) {
   return (
     <button
@@ -638,6 +788,9 @@ export default function AdminDashboard({ user, onLogout }) {
   const [editTarget, setEditTarget] = useState(null);
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [togglingId, setTogglingId] = useState(null);
+
+  // ── Edit attendance
+  const [editAttendanceTarget, setEditAttendanceTarget] = useState(null);
 
   // ── Import modal
   const [showImportModal, setShowImportModal] = useState(false);
@@ -770,6 +923,13 @@ export default function AdminDashboard({ user, onLogout }) {
             fetchAttendance();
             showToast(`Imported ${res.imported} record(s), ${res.overwritten} overwritten.`);
           }}
+        />
+      )}
+      {editAttendanceTarget && (
+        <EditAttendanceModal
+          record={editAttendanceTarget}
+          onClose={() => setEditAttendanceTarget(null)}
+          onSuccess={(msg) => { showToast(msg); setEditAttendanceTarget(null); fetchAttendance(); }}
         />
       )}
 
@@ -994,12 +1154,13 @@ export default function AdminDashboard({ user, onLogout }) {
                     <th className="text-left px-5 py-3 font-medium">Time Out</th>
                     <th className="text-left px-5 py-3 font-medium">Duration</th>
                     <th className="text-left px-5 py-3 font-medium">Status</th>
+                    <th className="text-left px-5 py-3 font-medium">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
                   {loading ? (
                     <tr>
-                      <td colSpan={7} className="text-center py-12 text-surface-200/40">
+                      <td colSpan={8} className="text-center py-12 text-surface-200/40">
                         <div className="flex items-center justify-center gap-2">
                           <Spinner size="w-5 h-5" />
                           Loading records…
@@ -1008,7 +1169,7 @@ export default function AdminDashboard({ user, onLogout }) {
                     </tr>
                   ) : records.length === 0 ? (
                     <tr>
-                      <td colSpan={7} className="text-center py-12 text-surface-200/40">
+                      <td colSpan={8} className="text-center py-12 text-surface-200/40">
                         <svg className="w-12 h-12 mx-auto mb-3 text-surface-200/20" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1}>
                           <path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
                         </svg>
@@ -1043,6 +1204,19 @@ export default function AdminDashboard({ user, onLogout }) {
                               : "incomplete";
                             return <StatusBadge status={status} />;
                           })()}
+                        </td>
+                        {/* Actions */}
+                        <td className="px-5 py-3">
+                          <button
+                            id={`edit-attendance-${record.id}`}
+                            onClick={() => setEditAttendanceTarget(record)}
+                            title="Edit record"
+                            className="p-1.5 rounded-lg text-surface-200/40 hover:text-brand-300 hover:bg-brand-500/10 border border-transparent hover:border-brand-500/20 transition-all duration-150"
+                          >
+                            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                            </svg>
+                          </button>
                         </td>
                       </tr>
                     ))

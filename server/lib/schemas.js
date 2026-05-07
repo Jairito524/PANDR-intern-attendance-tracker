@@ -55,3 +55,18 @@ export const updateUserSchema = z
 export const changePasswordSchema = z.object({
   newPassword: z.string().min(8, "Password must be at least 8 characters"),
 });
+
+/**
+ * PATCH /api/admin/attendance/:id — admin edits an attendance record.
+ * All fields are optional; at least one must be present.
+ * time_out may be explicitly set to null to clear it.
+ */
+export const updateAttendanceSchema = z
+  .object({
+    date:     z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Date must be in YYYY-MM-DD format").optional(),
+    time_in:  z.string().datetime({ offset: true }).optional(),
+    time_out: z.string().datetime({ offset: true }).nullable().optional(),
+  })
+  .refine((data) => Object.keys(data).length > 0, {
+    message: "No valid fields to update",
+  });

@@ -65,6 +65,17 @@ export const getAdminAttendance = (params = {}) => {
 };
 export const getAdminStats = () => authFetch("/api/admin/stats");
 
+/**
+ * Updates an attendance record by ID.
+ * @param {string} id - Attendance record UUID
+ * @param {Object} updates - Fields to update (date, time_in, time_out)
+ */
+export const updateAttendanceRecord = (id, updates) =>
+  authFetch(`/api/admin/attendance/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify(updates),
+  });
+
 export const exportAttendance = async (params = {}) => {
   const { data: { session } } = await supabase.auth.getSession();
   const token = session?.access_token;
