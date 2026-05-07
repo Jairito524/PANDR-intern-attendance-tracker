@@ -1,11 +1,4 @@
-import dotenv from "dotenv";
-import { fileURLToPath } from "url";
-import { dirname, resolve } from "path";
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
-
-dotenv.config({ path: resolve(__dirname, "../../.env") });
+import { logger } from "../lib/logger.js";
 
 // Localhost IPs that are always allowed (for development)
 const LOCALHOST_IPS = new Set([
@@ -71,7 +64,7 @@ export default function ipRestriction(req, res, next) {
   }
 
   // Blocked — return 403
-  console.warn(`⛔ IP blocked: ${clientIp} (raw: ${rawIp})`);
+  logger.warn(`⛔ IP blocked: ${clientIp} (raw: ${rawIp})`);
   return res.status(403).json({
     error: "ACCESS_DENIED",
     message:

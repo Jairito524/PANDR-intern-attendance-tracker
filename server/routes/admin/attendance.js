@@ -8,6 +8,7 @@ import { Router } from "express";
 import supabase from "../../lib/supabase.js";
 import { validate } from "../../lib/validate.js";
 import { updateAttendanceSchema } from "../../lib/schemas.js";
+import { logger } from "../../lib/logger.js";
 
 const router = Router();
 
@@ -44,7 +45,7 @@ router.get("/attendance", async (req, res) => {
 
     res.json({ records: results });
   } catch (err) {
-    console.error("Admin attendance error:", err);
+    logger.error("Admin attendance error:", err);
     res.status(500).json({ error: "Failed to fetch attendance records" });
   }
 });
@@ -88,7 +89,7 @@ router.get("/stats", async (req, res) => {
       averageHours,
     });
   } catch (err) {
-    console.error("Admin stats error:", err);
+    logger.error("Admin stats error:", err);
     res.status(500).json({ error: "Failed to fetch stats" });
   }
 });
@@ -158,7 +159,7 @@ router.patch("/attendance/:id", validate(updateAttendanceSchema), async (req, re
 
     res.json({ record: updated });
   } catch (err) {
-    console.error("Admin update attendance error:", err);
+    logger.error("Admin update attendance error:", err);
     res.status(500).json({ error: "Failed to update attendance record" });
   }
 });

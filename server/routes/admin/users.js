@@ -9,6 +9,7 @@ import supabase from "../../lib/supabase.js";
 import { sendWelcomeEmail } from "../../lib/mailer.js";
 import { validate } from "../../lib/validate.js";
 import { createUserSchema, updateUserSchema } from "../../lib/schemas.js";
+import { logger } from "../../lib/logger.js";
 
 const router = Router();
 
@@ -23,7 +24,7 @@ router.get("/users", async (req, res) => {
     if (error) throw error;
     res.json({ users: data });
   } catch (err) {
-    console.error("Admin get users error:", err);
+    logger.error("Admin get users error:", err);
     res.status(500).json({ error: "Failed to fetch users" });
   }
 });
@@ -70,12 +71,12 @@ router.post("/users", validate(createUserSchema), async (req, res) => {
     try {
       await sendWelcomeEmail({ name, email, password });
     } catch (emailErr) {
-      console.warn("Welcome email failed to send:", emailErr.message);
+      logger.warn("Welcome email failed to send:", emailErr.message);
     }
 
     res.status(201).json({ user: profile });
   } catch (err) {
-    console.error("Admin create user error:", err);
+    logger.error("Admin create user error:", err);
     res.status(500).json({ error: err.message || "Failed to create user" });
   }
 });
@@ -90,7 +91,7 @@ router.patch("/users/:id", validate(updateUserSchema), async (req, res) => {
     if (password && typeof password === "string" && password.trim().length > 0) {
       const { error: authError } = await supabase.auth.admin.updateUserById(id, { password });
       if (authError) {
-        console.error("Password update error:", authError);
+        logger.error("Password update error:", authError);
         return res.status(500).json({ error: authError.message || "Failed to update password" });
       }
     }
@@ -117,7 +118,7 @@ router.patch("/users/:id", validate(updateUserSchema), async (req, res) => {
     if (error) throw error;
     res.json({ user: data });
   } catch (err) {
-    console.error("Admin update user error:", err);
+    logger.error("Admin update user error:", err);
     res.status(500).json({ error: "Failed to update user" });
   }
 });
@@ -133,7 +134,7 @@ router.delete("/users/:id", async (req, res) => {
 
     res.json({ success: true });
   } catch (err) {
-    console.error("Admin delete user error:", err);
+    logger.error("Admin delete user error:", err);
     res.status(500).json({ error: "Failed to delete user" });
   }
 });

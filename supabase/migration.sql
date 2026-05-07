@@ -5,13 +5,15 @@
 
 -- 1. Users table (profile data, linked to auth.users)
 CREATE TABLE IF NOT EXISTS public.users (
-  id          UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
-  name        TEXT        NOT NULL,
-  email       TEXT        NOT NULL UNIQUE,
-  role        TEXT        NOT NULL DEFAULT 'intern' CHECK (role IN ('intern', 'admin')),
-  department  TEXT,
-  created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
-  updated_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+  id                   UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+  name                 TEXT        NOT NULL,
+  email                TEXT        NOT NULL UNIQUE,
+  role                 TEXT        NOT NULL DEFAULT 'intern' CHECK (role IN ('intern', 'admin')),
+  department           TEXT,
+  is_active            BOOLEAN     NOT NULL DEFAULT true,
+  must_change_password BOOLEAN     NOT NULL DEFAULT true,
+  created_at           TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at           TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
 -- 2. Attendance table

@@ -2,6 +2,7 @@ import { Router } from "express";
 import supabase from "../lib/supabase.js";
 import { validate } from "../lib/validate.js";
 import { changePasswordSchema } from "../lib/schemas.js";
+import { logger } from "../lib/logger.js";
 
 const router = Router();
 
@@ -44,7 +45,7 @@ router.post("/time-in", async (req, res) => {
 
     res.status(201).json({ message: "Time-in recorded", attendance: data });
   } catch (err) {
-    console.error("Time-in error:", err);
+    logger.error("Time-in error:", err);
     res.status(500).json({ error: "Failed to record time-in" });
   }
 });
@@ -95,7 +96,7 @@ router.post("/time-out", async (req, res) => {
 
     res.json({ message: "Time-out recorded", attendance: data });
   } catch (err) {
-    console.error("Time-out error:", err);
+    logger.error("Time-out error:", err);
     res.status(500).json({ error: "Failed to record time-out" });
   }
 });
@@ -117,7 +118,7 @@ router.get("/today", async (req, res) => {
 
     res.json({ attendance: data });
   } catch (err) {
-    console.error("Today error:", err);
+    logger.error("Today error:", err);
     res.status(500).json({ error: "Failed to fetch today's attendance" });
   }
 });
@@ -137,7 +138,7 @@ router.get("/history", async (req, res) => {
 
     res.json({ records: data });
   } catch (err) {
-    console.error("History error:", err);
+    logger.error("History error:", err);
     res.status(500).json({ error: "Failed to fetch attendance history" });
   }
 });
@@ -166,7 +167,7 @@ router.patch("/change-password", validate(changePasswordSchema), async (req, res
 
     res.json({ success: true });
   } catch (err) {
-    console.error("Change password error:", err);
+    logger.error("Change password error:", err);
     res.status(500).json({ error: err.message || "Failed to change password" });
   }
 });

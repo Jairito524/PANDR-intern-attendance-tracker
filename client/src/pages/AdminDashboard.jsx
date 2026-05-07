@@ -13,6 +13,7 @@ import {
 import { formatTimeShort as formatTime, formatDuration, formatShortDate as formatDate } from "../utils/formatters";
 import Modal from "../components/Modal";
 import StatusBadge from "../components/StatusBadge";
+import StatCard from "../components/StatCard";
 
 
 // ─── Spinner ─────────────────────────────────────────────
@@ -967,54 +968,62 @@ export default function AdminDashboard({ user, onLogout }) {
 
       {/* ── Stats Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
-        <div className="glass rounded-2xl p-6 animate-slide-up" style={{ animationDelay: "0.05s" }}>
-          <div className="flex items-center gap-3 mb-3">
-            <div className="w-12 h-12 rounded-xl bg-brand-500/10 flex items-center justify-center">
-              <svg className="w-6 h-6 text-brand-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-              </svg>
-            </div>
-            <p className="text-xs text-surface-200/50 uppercase tracking-wider font-medium">Total Interns</p>
-          </div>
-          <p className="text-3xl font-bold text-white">{loading ? "…" : stats.totalInterns}</p>
-        </div>
+        <StatCard
+          animationDelay="0.05s"
+          size="md"
+          padding="p-6"
+          iconBg="bg-brand-500/10"
+          label="Total Interns"
+          value={<span className="text-3xl font-bold">{loading ? "…" : stats.totalInterns}</span>}
+          icon={
+            <svg className="w-6 h-6 text-brand-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+            </svg>
+          }
+        />
 
-        <div className="glass rounded-2xl p-6 animate-slide-up" style={{ animationDelay: "0.1s" }}>
-          <div className="flex items-center gap-3 mb-3">
-            <div className="w-12 h-12 rounded-xl bg-brand-400/10 flex items-center justify-center">
-              <svg className="w-6 h-6 text-brand-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-            </div>
-            <p className="text-xs text-surface-200/50 uppercase tracking-wider font-medium">Present Today</p>
-          </div>
-          <p className="text-3xl font-bold text-white">{loading ? "…" : stats.presentToday}</p>
-          {!loading && stats.totalInterns > 0 && (
-            <div className="mt-2">
-              <div className="w-full h-1.5 rounded-full bg-white/5 overflow-hidden">
-                <div
-                  className="h-full rounded-full bg-gradient-to-r from-brand-500 to-brand-400 transition-all duration-1000"
-                  style={{ width: `${Math.min((stats.presentToday / stats.totalInterns) * 100, 100)}%` }}
-                />
+        <StatCard
+          animationDelay="0.1s"
+          size="md"
+          padding="p-6"
+          iconBg="bg-brand-400/10"
+          label="Present Today"
+          value={<span className="text-3xl font-bold">{loading ? "…" : stats.presentToday}</span>}
+          icon={
+            <svg className="w-6 h-6 text-brand-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          }
+          subtext={
+            !loading && stats.totalInterns > 0 && (
+              <div className="mt-2">
+                <div className="w-full h-1.5 rounded-full bg-white/5 overflow-hidden">
+                  <div
+                    className="h-full rounded-full bg-gradient-to-r from-brand-500 to-brand-400 transition-all duration-1000"
+                    style={{ width: `${Math.min((stats.presentToday / stats.totalInterns) * 100, 100)}%` }}
+                  />
+                </div>
+                <p className="text-xs text-surface-200/40 mt-1">
+                  {Math.round((stats.presentToday / stats.totalInterns) * 100)}% attendance rate
+                </p>
               </div>
-              <p className="text-xs text-surface-200/40 mt-1">
-                {Math.round((stats.presentToday / stats.totalInterns) * 100)}% attendance rate
-              </p>
-            </div>
-          )}
-        </div>
+            )
+          }
+        />
 
-        <div className="glass rounded-2xl p-6 animate-slide-up" style={{ animationDelay: "0.15s" }}>
-          <div className="flex items-center gap-3 mb-3">
-            <div className="w-12 h-12 rounded-xl bg-brand-500/10 flex items-center justify-center">
-              <svg className="w-6 h-6 text-brand-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-            </div>
-            <p className="text-xs text-surface-200/50 uppercase tracking-wider font-medium">Avg Hours / Day</p>
-          </div>
-          <p className="text-3xl font-bold text-white">{loading ? "…" : `${stats.averageHours}h`}</p>
-        </div>
+        <StatCard
+          animationDelay="0.15s"
+          size="md"
+          padding="p-6"
+          iconBg="bg-brand-500/10"
+          label="Avg Hours / Day"
+          value={<span className="text-3xl font-bold">{loading ? "…" : `${stats.averageHours}h`}</span>}
+          icon={
+            <svg className="w-6 h-6 text-brand-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          }
+        />
       </div>
 
       {/* ── Tab Bar */}
