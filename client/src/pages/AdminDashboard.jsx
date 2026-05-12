@@ -1220,11 +1220,12 @@ export default function AdminDashboard({ user, onLogout }) {
                             id={`edit-attendance-${record.id}`}
                             onClick={() => setEditAttendanceTarget(record)}
                             title="Edit record"
-                            className="p-1.5 rounded-lg text-surface-200/40 hover:text-brand-300 hover:bg-brand-500/10 border border-transparent hover:border-brand-500/20 transition-all duration-150"
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 min-h-[44px] rounded-lg text-xs font-medium text-surface-200/60 hover:text-white hover:bg-white/5 border border-white/5 hover:border-white/10 transition-all duration-150"
                           >
                             <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                               <path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
                             </svg>
+                            <span className="hidden sm:inline">Edit</span>
                           </button>
                         </td>
                       </tr>
