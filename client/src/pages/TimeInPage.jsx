@@ -139,7 +139,7 @@ export default function TimeInPage({ user, onLogout }) {
         <div
           className="fixed inset-0 z-50 flex items-center justify-center p-4"
           style={{ background: "rgba(0,0,0,0.75)", backdropFilter: "blur(6px)" }}
-          // Intentionally no onClick handler — modal cannot be dismissed
+        // Intentionally no onClick handler — modal cannot be dismissed
         >
           <div className="w-full max-w-md glass rounded-2xl border border-white/10 shadow-2xl animate-slide-up">
             {/* Header */}

@@ -209,10 +209,9 @@ export default function Login({ onLogin, disabledMessage = "" }) {
               <div
                 onClick={() => setRememberMe((v) => !v)}
                 className={`w-4 h-4 rounded flex items-center justify-center border cursor-pointer transition-all duration-150
-                  ${
-                    rememberMe
-                      ? "bg-brand-500 border-brand-500"
-                      : "bg-white/5 border-white/20 hover:border-white/40"
+                  ${rememberMe
+                    ? "bg-brand-500 border-brand-500"
+                    : "bg-white/5 border-white/20 hover:border-white/40"
                   }`}
               >
                 {rememberMe && (
