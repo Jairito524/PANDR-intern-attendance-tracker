@@ -471,7 +471,7 @@ export default function InternDashboard({ user, onLogout }) {
                 <th className="text-left px-5 py-3 font-medium">Time In</th>
                 <th className="text-left px-5 py-3 font-medium">Time Out</th>
                 <th className="text-left px-5 py-3 font-medium">Duration</th>
-                <th className="text-left px-5 py-3 font-medium">Status</th>
+                <th className="text-left px-5 py-3 font-medium w-px whitespace-nowrap">Status</th>
               </tr>
             </thead>
             <tbody>
