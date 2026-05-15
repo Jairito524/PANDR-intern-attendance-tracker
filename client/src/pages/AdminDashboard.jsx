@@ -77,6 +77,17 @@ const ROLE_OPTIONS = [
   { value: "admin", label: "Admin" },
 ];
 
+// ─── Shift arrival status helper (client-side) ────────────
+function getArrivalStatus(timeIn, shiftStart, date) {
+  if (!timeIn || !shiftStart || !date) return null;
+  const [hours, minutes] = shiftStart.split(":").map(Number);
+  const shiftStartPHT = new Date(
+    `${date}T${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}:00+08:00`
+  );
+  const graceDeadline = new Date(shiftStartPHT.getTime() + 5 * 60 * 1000);
+  return new Date(timeIn) <= graceDeadline ? "on_time" : "late";
+}
+
 // ─── Custom Role Dropdown ─────────────────────────────────
 function RoleSelect({ id, value, onChange }) {
   const [open, setOpen] = useState(false);
@@ -151,7 +162,7 @@ function RoleSelect({ id, value, onChange }) {
 
 // ─── Add User Modal ──────────────────────────────────────
 function AddUserModal({ onClose, onSuccess }) {
-  const [form, setForm] = useState({ name: "", email: "", password: "", role: "intern", department: "" });
+  const [form, setForm] = useState({ name: "", email: "", password: "", role: "intern", department: "", shift_start: "08:00", shift_end: "17:00" });
   const [errors, setErrors] = useState({});
   const [submitting, setSubmitting] = useState(false);
   const [serverError, setServerError] = useState("");
@@ -211,6 +222,27 @@ function AddUserModal({ onClose, onSuccess }) {
           <input id="add-department" type="text" placeholder="e.g. Engineering" value={form.department}
             onChange={(e) => set("department", e.target.value)} className={inputCls} />
         </Field>
+        {/* Shift Schedule */}
+        <div className="grid grid-cols-2 gap-3">
+          <Field label="Shift Start" id="add-shift-start">
+            <input
+              type="time"
+              id="add-shift-start"
+              value={form.shift_start || '08:00'}
+              onChange={(e) => set('shift_start', e.target.value)}
+              className={inputCls + " [color-scheme:dark]"}
+            />
+          </Field>
+          <Field label="Shift End" id="add-shift-end">
+            <input
+              type="time"
+              id="add-shift-end"
+              value={form.shift_end || '17:00'}
+              onChange={(e) => set('shift_end', e.target.value)}
+              className={inputCls + " [color-scheme:dark]"}
+            />
+          </Field>
+        </div>
         <div className="flex gap-3 pt-1">
           <button type="button" onClick={onClose}
             className="flex-1 py-2.5 rounded-xl text-sm text-surface-200/60 hover:text-white hover:bg-white/5 transition-all">
@@ -253,7 +285,13 @@ function EyeToggle({ visible, onClick }) {
 
 // ─── Edit User Modal ─────────────────────────────────────
 function EditUserModal({ user, onClose, onSuccess }) {
-  const [form, setForm] = useState({ name: user.name || "", department: user.department || "", role: user.role || "intern" });
+  const [form, setForm] = useState({
+    name:        user.name       || "",
+    department:  user.department || "",
+    role:        user.role       || "intern",
+    shift_start: user.shift_start ? user.shift_start.substring(0, 5) : "08:00",
+    shift_end:   user.shift_end   ? user.shift_end.substring(0, 5)   : "17:00",
+  });
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -340,6 +378,28 @@ function EditUserModal({ user, onClose, onSuccess }) {
         <Field label="Role" id="edit-role">
           <RoleSelect id="edit-role" value={form.role} onChange={(v) => set("role", v)} />
         </Field>
+
+        {/* Shift Schedule */}
+        <div className="grid grid-cols-2 gap-3">
+          <Field label="Shift Start" id="edit-shift-start">
+            <input
+              type="time"
+              id="edit-shift-start"
+              value={form.shift_start || '08:00'}
+              onChange={(e) => set('shift_start', e.target.value)}
+              className={inputCls + " [color-scheme:dark]"}
+            />
+          </Field>
+          <Field label="Shift End" id="edit-shift-end">
+            <input
+              type="time"
+              id="edit-shift-end"
+              value={form.shift_end || '17:00'}
+              onChange={(e) => set('shift_end', e.target.value)}
+              className={inputCls + " [color-scheme:dark]"}
+            />
+          </Field>
+        </div>
 
         {/* ── Password Section Divider ── */}
         <div className="flex items-center gap-3 pt-2">
@@ -1153,23 +1213,35 @@ export default function AdminDashboard({ user, onLogout }) {
               </p>
             </div>
             <div className="overflow-x-auto overflow-y-auto max-h-[500px]" style={{ WebkitOverflowScrolling: "touch" }}>
-              <table className="w-full text-sm min-w-[640px]">
+              <table className="w-full text-sm min-w-[900px]">
+                <colgroup>
+                  <col className="w-48" />  {/* Intern */}
+                  <col className="w-28" />  {/* Department */}
+                  <col className="w-28" />  {/* Date */}
+                  <col className="w-24" />  {/* Time In */}
+                  <col className="w-24" />  {/* Arrival */}
+                  <col className="w-24" />  {/* Time Out */}
+                  <col className="w-20" />  {/* Duration */}
+                  <col className="w-24" />  {/* Status */}
+                  <col className="w-20" />  {/* Actions */}
+                </colgroup>
                 <thead className="sticky top-0 z-10 bg-[#12141a]">
                   <tr className="text-surface-200/50 text-xs uppercase tracking-wider border-b border-white/5">
-                    <th className="text-left px-5 py-3 font-medium">Intern</th>
-                    <th className="text-left px-5 py-3 font-medium">Department</th>
-                    <th className="text-left px-5 py-3 font-medium">Date</th>
-                    <th className="text-left px-5 py-3 font-medium">Time In</th>
-                    <th className="text-left px-5 py-3 font-medium">Time Out</th>
-                    <th className="text-left px-5 py-3 font-medium">Duration</th>
-                    <th className="text-left px-5 py-3 font-medium">Status</th>
-                    <th className="text-left px-5 py-3 font-medium">Actions</th>
+                    <th className="text-left px-4 py-3 font-medium">Intern</th>
+                    <th className="text-left px-4 py-3 font-medium hidden lg:table-cell">Department</th>
+                    <th className="text-left px-4 py-3 font-medium">Date</th>
+                    <th className="text-left px-4 py-3 font-medium">Time In</th>
+                    <th className="text-left px-4 py-3 font-medium">Arrival</th>
+                    <th className="text-left px-4 py-3 font-medium">Time Out</th>
+                    <th className="text-left px-4 py-3 font-medium hidden md:table-cell">Duration</th>
+                    <th className="text-left px-4 py-3 font-medium">Status</th>
+                    <th className="text-left px-4 py-3 font-medium">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
                   {loading ? (
                     <tr>
-                      <td colSpan={8} className="text-center py-12 text-surface-200/40">
+                      <td colSpan={9} className="text-center py-12 text-surface-200/40">
                         <div className="flex items-center justify-center gap-2">
                           <Spinner size="w-5 h-5" />
                           Loading records…
@@ -1178,7 +1250,7 @@ export default function AdminDashboard({ user, onLogout }) {
                     </tr>
                   ) : records.length === 0 ? (
                     <tr>
-                      <td colSpan={8} className="text-center py-12 text-surface-200/40">
+                      <td colSpan={9} className="text-center py-12 text-surface-200/40">
                         <svg className="w-12 h-12 mx-auto mb-3 text-surface-200/20" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1}>
                           <path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
                         </svg>
@@ -1188,22 +1260,32 @@ export default function AdminDashboard({ user, onLogout }) {
                   ) : (
                     records.map((record) => (
                       <tr key={record.id} className="border-b border-white/5 table-row-hover transition-colors duration-150">
-                        <td className="px-5 py-3">
+                        <td className="px-4 py-3">
                           <div>
                             <p className="text-white font-medium">{record.users?.name || "Unknown"}</p>
                             <p className="text-xs text-surface-200/40">{record.users?.email}</p>
                           </div>
                         </td>
-                        <td className="px-5 py-3 text-surface-200/60">{record.users?.department || "—"}</td>
-                        <td className="px-5 py-3 text-white tabular-nums">
+                        <td className="px-4 py-3 text-surface-200/60 hidden lg:table-cell">{record.users?.department || "—"}</td>
+                        <td className="px-4 py-3 text-white tabular-nums">
                           {new Date(record.date + "T00:00:00").toLocaleDateString("en-US", {
                             month: "short", day: "numeric", year: "numeric",
                           })}
                         </td>
-                        <td className="px-5 py-3 text-surface-200/70 tabular-nums">{formatTime(record.time_in)}</td>
-                        <td className="px-5 py-3 text-surface-200/70 tabular-nums">{formatTime(record.time_out)}</td>
-                        <td className="px-5 py-3 text-surface-200/70 tabular-nums">{formatDuration(record.duration_minutes)}</td>
-                        <td className="px-5 py-3">
+                        <td className="px-4 py-3 text-surface-200/70 tabular-nums">{formatTime(record.time_in)}</td>
+                        {/* Arrival badge */}
+                        <td className="px-4 py-3">
+                          {(() => {
+                            const status = getArrivalStatus(record.time_in, record.users?.shift_start, record.date);
+                            if (!status) return <span className="text-surface-200/30">—</span>;
+                            return status === "on_time"
+                              ? <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs bg-green-500/10 text-green-400">✓ On Time</span>
+                              : <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs bg-red-500/10 text-red-400">⚑ Late</span>;
+                          })()}
+                        </td>
+                        <td className="px-4 py-3 text-surface-200/70 tabular-nums">{formatTime(record.time_out)}</td>
+                        <td className="px-4 py-3 text-surface-200/70 tabular-nums hidden md:table-cell">{formatDuration(record.duration_minutes)}</td>
+                        <td className="px-4 py-3">
                           {(() => {
                             const today = new Date().toISOString().split("T")[0];
                             const status = record.time_out
@@ -1215,7 +1297,7 @@ export default function AdminDashboard({ user, onLogout }) {
                           })()}
                         </td>
                         {/* Actions */}
-                        <td className="px-5 py-3">
+                        <td className="px-4 py-3">
                           <button
                             id={`edit-attendance-${record.id}`}
                             onClick={() => setEditAttendanceTarget(record)}
@@ -1280,6 +1362,7 @@ export default function AdminDashboard({ user, onLogout }) {
                     <th className="text-left px-5 py-3 font-medium hidden md:table-cell">Email</th>
                     <th className="text-left px-5 py-3 font-medium">Role</th>
                     <th className="text-left px-5 py-3 font-medium hidden md:table-cell">Department</th>
+                    <th className="text-left px-5 py-3 font-medium hidden md:table-cell">Shift</th>
                     <th className="text-left px-5 py-3 font-medium hidden md:table-cell">Date Added</th>
                     <th className="text-left px-5 py-3 font-medium">Active</th>
                     <th className="text-left px-5 py-3 font-medium">Actions</th>
@@ -1288,7 +1371,7 @@ export default function AdminDashboard({ user, onLogout }) {
                 <tbody>
                   {usersLoading ? (
                     <tr>
-                      <td colSpan={7} className="text-center py-12 text-surface-200/40">
+                      <td colSpan={8} className="text-center py-12 text-surface-200/40">
                         <div className="flex items-center justify-center gap-2">
                           <Spinner size="w-5 h-5" />
                           Loading users…
@@ -1297,7 +1380,7 @@ export default function AdminDashboard({ user, onLogout }) {
                     </tr>
                   ) : users.length === 0 ? (
                     <tr>
-                      <td colSpan={7} className="text-center py-12 text-surface-200/40">
+                      <td colSpan={8} className="text-center py-12 text-surface-200/40">
                         <svg className="w-12 h-12 mx-auto mb-3 text-surface-200/20" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1}>
                           <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
                         </svg>
@@ -1340,6 +1423,10 @@ export default function AdminDashboard({ user, onLogout }) {
                           </td>
                           {/* Department */}
                           <td className="px-5 py-3 text-surface-200/60 hidden md:table-cell">{u.department || "—"}</td>
+                          {/* Shift */}
+                          <td className="px-5 py-3 text-surface-200/70 hidden md:table-cell tabular-nums">
+                            {u.shift_start?.substring(0, 5)} – {u.shift_end?.substring(0, 5)}
+                          </td>
                           {/* Date Added */}
                           <td className="px-5 py-3 text-surface-200/50 text-xs tabular-nums hidden md:table-cell">
                             {formatDate(u.created_at)}

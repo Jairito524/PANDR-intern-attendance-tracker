@@ -20,7 +20,7 @@ router.get("/attendance", async (req, res) => {
 
     let query = supabase
       .from("attendance")
-      .select("*, users(name, email, department)")
+      .select("*, users(name, email, department, shift_start, shift_end)")
       .order("date", { ascending: false })
       .order("time_in", { ascending: false });
 

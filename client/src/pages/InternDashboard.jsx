@@ -5,6 +5,17 @@ import Modal from "../components/Modal";
 import StatCard from "../components/StatCard";
 import StatusBadge from "../components/StatusBadge";
 
+// ─── Shift arrival status helper ───────────────────────────────
+function getArrivalStatus(timeIn, shiftStart, date) {
+  if (!timeIn || !shiftStart || !date) return null;
+  const [hours, minutes] = shiftStart.split(":").map(Number);
+  const shiftStartPHT = new Date(
+    `${date}T${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}:00+08:00`
+  );
+  const graceDeadline = new Date(shiftStartPHT.getTime() + 5 * 60 * 1000);
+  return new Date(timeIn) <= graceDeadline ? "on_time" : "late";
+}
+
 export default function InternDashboard({ user, onLogout }) {
   const [today, setToday] = useState(null);
   const [history, setHistory] = useState([]);
@@ -162,6 +173,20 @@ export default function InternDashboard({ user, onLogout }) {
             <p className="text-2xl font-bold text-brand-400 mt-1 tabular-nums">{liveTimeStr}</p>
           </div>
         </div>
+        {/* Shift Schedule */}
+        {user?.shift_start && user?.shift_end && (
+          <div className="flex items-center gap-2 mt-3 pt-3 border-t border-white/5">
+            <svg className="w-4 h-4 text-surface-200/40 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <p className="text-xs text-surface-200/40">
+              Your shift:{" "}
+              <span className="text-surface-200/70 font-medium tabular-nums">
+                {user.shift_start.substring(0, 5)} – {user.shift_end.substring(0, 5)}
+              </span>
+            </p>
+          </div>
+        )}
       </div>
 
       {/* Messages */}
@@ -469,6 +494,7 @@ export default function InternDashboard({ user, onLogout }) {
               <tr className="text-surface-200/50 text-xs uppercase tracking-wider border-b border-white/5">
                 <th className="text-left px-5 py-3 font-medium">Date</th>
                 <th className="text-left px-5 py-3 font-medium">Time In</th>
+                <th className="text-left px-5 py-3 font-medium hidden sm:table-cell">Arrival</th>
                 <th className="text-left px-5 py-3 font-medium">Time Out</th>
                 <th className="text-left px-5 py-3 font-medium">Duration</th>
                 <th className="text-left px-5 py-3 font-medium w-px whitespace-nowrap">Status</th>
@@ -477,13 +503,13 @@ export default function InternDashboard({ user, onLogout }) {
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={5} className="text-center py-12 text-surface-200/40">
+                  <td colSpan={6} className="text-center py-12 text-surface-200/40">
                     Loading…
                   </td>
                 </tr>
               ) : history.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="text-center py-12 text-surface-200/40">
+                  <td colSpan={6} className="text-center py-12 text-surface-200/40">
                     No attendance records yet
                   </td>
                 </tr>
@@ -492,6 +518,16 @@ export default function InternDashboard({ user, onLogout }) {
                   <tr key={record.id} className="border-b border-white/5 table-row-hover transition-colors duration-150">
                     <td className="px-5 py-3 text-white font-medium">{formatDate(record.date)}</td>
                     <td className="px-5 py-3 text-surface-200/70 tabular-nums">{formatTime(record.time_in)}</td>
+                    {/* Arrival badge */}
+                    <td className="px-5 py-3 hidden sm:table-cell">
+                      {(() => {
+                        const status = getArrivalStatus(record.time_in, user?.shift_start, record.date);
+                        if (!status) return <span className="text-surface-200/30">—</span>;
+                        return status === "on_time"
+                          ? <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs bg-green-500/10 text-green-400">✓ On Time</span>
+                          : <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs bg-red-500/10 text-red-400">⚑ Late</span>;
+                      })()}
+                    </td>
                     <td className="px-5 py-3 text-surface-200/70 tabular-nums">{formatTime(record.time_out)}</td>
                     <td className="px-5 py-3 text-surface-200/70 tabular-nums">{formatDuration(record.duration_minutes)}</td>
                     <td className="px-5 py-3">

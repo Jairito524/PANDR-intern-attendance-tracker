@@ -32,7 +32,7 @@ router.get("/users", async (req, res) => {
 // ─── POST /api/admin/users ──────────────────────────────
 router.post("/users", validate(createUserSchema), async (req, res) => {
   try {
-    const { name, email, password, role = "intern", department } = req.body;
+    const { name, email, password, role = "intern", department, shift_start = '08:00', shift_end = '17:00' } = req.body;
 
     // Create user in Supabase Auth
     const { data: authData, error: authError } = await supabase.auth.admin.createUser({
@@ -57,7 +57,7 @@ router.post("/users", validate(createUserSchema), async (req, res) => {
     // Insert into public.users
     const { data: profile, error: profileError } = await supabase
       .from("users")
-      .insert({ id: userId, name, email, role, department, is_active: true, must_change_password: true })
+      .insert({ id: userId, name, email, role, department, is_active: true, must_change_password: true, shift_start, shift_end })
       .select()
       .single();
 
@@ -85,7 +85,7 @@ router.post("/users", validate(createUserSchema), async (req, res) => {
 router.patch("/users/:id", validate(updateUserSchema), async (req, res) => {
   try {
     const { id } = req.params;
-    const { name, department, role, is_active, password } = req.body;
+    const { name, department, role, is_active, password, shift_start, shift_end } = req.body;
 
     // ── Handle optional password update via Supabase Auth ──
     if (password && typeof password === "string" && password.trim().length > 0) {
@@ -98,10 +98,12 @@ router.patch("/users/:id", validate(updateUserSchema), async (req, res) => {
 
     // ── Handle profile field updates ──
     const updates = {};
-    if (name !== undefined) updates.name = name;
-    if (department !== undefined) updates.department = department;
-    if (role !== undefined) updates.role = role;
-    if (is_active !== undefined) updates.is_active = is_active;
+    if (name !== undefined)        updates.name        = name;
+    if (department !== undefined)  updates.department  = department;
+    if (role !== undefined)        updates.role        = role;
+    if (is_active !== undefined)   updates.is_active   = is_active;
+    if (shift_start !== undefined) updates.shift_start = shift_start;
+    if (shift_end !== undefined)   updates.shift_end   = shift_end;
 
     if (Object.keys(updates).length === 0) {
       // Password-only update — no profile fields to change

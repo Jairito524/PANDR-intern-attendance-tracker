@@ -18,6 +18,8 @@ export const createUserSchema = z.object({
     errorMap: () => ({ message: "Role must be intern or admin" }),
   }).default("intern"),
   department: z.string().min(1, "Department is required"),
+  shift_start: z.string().regex(/^\d{2}:\d{2}$/, "Shift start must be in HH:MM format").optional().default("08:00"),
+  shift_end:   z.string().regex(/^\d{2}:\d{2}$/, "Shift end must be in HH:MM format").optional().default("17:00"),
 });
 
 /**
@@ -42,6 +44,8 @@ export const updateUserSchema = z
         { message: "Password must be at least 8 characters" }
       )
       .optional(),
+    shift_start: z.string().regex(/^\d{2}:\d{2}$/, "Shift start must be in HH:MM format").optional(),
+    shift_end:   z.string().regex(/^\d{2}:\d{2}$/, "Shift end must be in HH:MM format").optional(),
   })
   .refine((data) => Object.keys(data).length > 0, {
     message: "At least one field is required",
