@@ -337,3 +337,99 @@ Unique constraint: one attendance record per `(user_id, date)`.
 9. **Forced password change** = accounts created by an admin have `must_change_password = true`; the intern must set a new password via the modal before they can use the system. After a successful change they are signed out and must log in again with the new password
 10. **Welcome email** = when an admin creates a new intern account, a welcome email containing the intern's email address and temporary password is sent via Resend. If the email fails, the account creation is not rolled back
 11. **Remember Me** = when checked at login the session persists in `localStorage` across browser restarts; when unchecked the session is stored in `sessionStorage` and is cleared when the browser closes. A startup guard in `App.jsx` enforces the unchecked case on page load
+
+
+## Project Handover Notes
+
+This project was developed during an OJT placement at PANDR Outsourcing.
+The following notes are intended for the next developer or intern who will
+maintain or extend this system.
+
+### Current State
+- The system is fully functional for daily intern attendance tracking
+- Core features are implemented and tested (I think haha)
+- The codebase has been refactored for readability (shared utilities, reusable components, modular routes)
+- Docker support is available for consistent local development
+
+### Deployment Decision
+
+The initial plan for this project was to deploy it **locally within the office network**,
+meaning interns can only access the system when physically connected to the PANDR office
+network. This aligns with the attendance tracking purpose — interns should only be able
+to clock in and clock out when they are actually in the office.
+
+The IP restriction feature (`ALLOWED_OFFICE_IP` in `.env`) was built with this in mind.
+When configured, only requests coming from the office public IP are allowed through.
+
+However, the **final deployment decision is left to the next developer**. Both options are viable:
+
+**Option A — Local Office Network (original plan)**
+- Run the app on a dedicated office PC that stays on during office hours
+- Interns access it via local IP (e.g. `http://192.168.1.x:5173`)
+- No domain or cloud hosting needed
+- Set `ALLOWED_OFFICE_IP` to the office public IP for enforcement
+- Set a static local IP on the office PC via the router to keep the URL stable
+- Use PM2 to keep the server running automatically on startup
+
+**Option B — Public Domain**
+- Host the frontend on Cloudflare Pages or Vercel
+- Host the backend on Render or Railway
+- Interns can access from anywhere — but the IP restriction should then be
+  reconsidered since it would block non-office access
+- A custom domain for Resend is also needed for welcome emails to work properly
+
+### Known Limitations
+- The free Resend tier with `onboarding@resend.dev` can only send welcome emails
+  to verified addresses — a custom domain is needed to send to any intern email
+- No audit log — when an admin edits an attendance record, there is no history
+  of what the values were before
+- Local IP addresses can change when the office PC reconnects — set a static
+  local IP via the router to avoid this (relevant for Option A)
+
+### Future Improvements
+
+#### 🔴 High Priority
+- [ ] **Configure `ALLOWED_OFFICE_IP`** — set the PANDR office public IP in `.env`
+  to enforce IP restriction. Visit [whatismyip.com](https://whatismyip.com) from
+  the office network to get the public IP
+- [ ] **Set up on a dedicated office PC** — run the app on a dedicated office machine
+  instead of a developer's laptop so interns always have a stable URL. Use PM2 to
+  keep the server running automatically on startup
+- [ ] **Edit Attendance Record** — feature branch `feature/edit-attendance` was started
+  but not completed. Admin should be able to edit the date, time-in, and time-out of
+  any attendance record. The full implementation prompt is already written and ready to use
+- [ ] **Custom Resend domain** — add a verified domain (e.g. `noreply@pandr.com`) so
+  welcome emails can be sent to any intern email address
+
+#### 🟡 Medium Priority
+- [ ] **Audit log for attendance edits** — when an admin edits an attendance record,
+  log the previous values, who changed it, and when
+- [ ] **Admin can manually add a single attendance record** — for cases where an intern
+  forgot to time-in entirely. A simple modal with intern selector, date, time-in, and
+  time-out fields
+- [ ] **Loading skeletons** — replace "Loading..." text with skeleton placeholder UI
+- [ ] **Environment variable validation** — add startup checks in `server/index.js`
+  to fail fast with a clear error if required env vars are missing
+- [ ] **Weekly/monthly attendance summary** — summary view for admins showing total
+  hours rendered per intern per week or month
+- [ ] **Pagination** — the attendance table loads all records at once. Add pagination
+  or infinite scroll as data grows
+
+#### 🟢 Low Priority
+- [ ] **PM2 setup** — configure PM2 on the office PC so the server restarts
+  automatically on reboot without manual intervention
+- [ ] **Forgot password flow** — currently only admins can reset passwords. Add a
+  self-service forgot password option for interns
+- [ ] **Intern profile page** — let interns update their own name and department
+  without needing admin intervention
+- [ ] **Push notifications** — notify interns if they haven't clocked in by a
+  certain time (e.g. 30 minutes after their shift start)
+- [ ] **Dark/light mode toggle** — currently dark mode only
+- [ ] **TypeScript migration** — convert the codebase to TypeScript for better
+  type safety and developer experience
+- [ ] **CHANGELOG.md** — maintain a changelog tracking features and fixes per version
+
+### About This Project
+
+This project was built by **Jairo Barra** during OJT at PANDR Outsourcing (2026).
+For questions about the codebase, refer to the inline code comments and this README.
