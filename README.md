@@ -390,8 +390,7 @@ However, the **final deployment decision is left to the next developer**. Both o
 
 #### 🔴 High Priority
 - [ ] **Configure `ALLOWED_OFFICE_IP`** — set the PANDR office public IP in `.env`
-  to enforce IP restriction. Visit [whatismyip.com](https://whatismyip.com) from
-  the office network to get the public IP
+  to enforce IP restriction. 
 - [ ] **Set up on a dedicated office PC** — run the app on a dedicated office machine
   instead of a developer's laptop so interns always have a stable URL. Use PM2 to
   keep the server running automatically on startup
